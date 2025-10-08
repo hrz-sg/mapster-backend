@@ -1,0 +1,20 @@
+[package]
+name = "lib-tmail"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+doctest = false
+
+[dependencies]
+# -- App Libs
+lib-utils = { path = "../../libs/lib-utils"}
+# -- Async
+tokio = { version = "1", features = ["full"] }
+# -- Json
+serde = {version = "1", features = ["derive"] }
+# -- Email
+lettre = "0.11.18"
+
+[dev-dependencies]
+anyhow = "1"

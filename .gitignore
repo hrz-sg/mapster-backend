@@ -1,0 +1,27 @@
+# === Rust build artifacts ===
+/target/
+/Cargo.lock        
+**/*.rs.bk
+
+# === IDE / Editors ===
+.vscode/
+.idea/
+*.iml
+
+# === OS files ===
+.DS_Store
+Thumbs.db
+
+# === Logs & Temp ===
+*.log
+*.tmp
+*.swp
+*.swo
+
+# === SQLx ===
+/sqlx-data.json
+
+# === Env / Config ===
+.env
+*.env
+.cargo/

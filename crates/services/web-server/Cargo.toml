@@ -1,0 +1,31 @@
+[package]
+name = "web-server"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# -- App Libs
+lib-utils = { path = "../../libs/lib-utils"}
+lib-auth = { path = "../../libs/lib-auth"}
+lib-core = { path = "../../libs/lib-core"}
+lib-web = { path = "../../libs/lib-web"}
+# -- Async
+tokio = { version = "1", features = ["full"] }
+# -- Json
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_with = { workspace = true }
+# -- Web
+axum = { workspace = true }
+tower-http = { workspace = true }
+tower-cookies = { workspace = true }
+# -- Tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# -- Others
+time = { workspace = true }
+uuid = {version = "1", features = ["v4","fast-rng",]}
+derive_more = { workspace = true }
+
+[dev-dependencies]
+httpc-test = "0.1.10"

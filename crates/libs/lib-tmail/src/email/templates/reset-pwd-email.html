@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reset Your Password</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      padding: 40px 0;
+      margin: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background-color: #ffffff;
+      border-radius: 8px;
+      padding: 30px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    }
+    h2 {
+      color: #333333;
+      margin-top: 0;
+      font-size: 22px;
+    }
+    p {
+      color: #555555;
+      font-size: 15px;
+      line-height: 1.6;
+      margin: 10px 0;
+    }
+    a.button {
+      display: inline-block;
+      margin: 25px 0;
+      padding: 12px 24px;
+      background-color: #007bff;
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 15px;
+    }
+    a.button:hover {
+      background-color: #0056b3;
+    }
+    .footer {
+      color: #999999;
+      font-size: 13px;
+      margin-top: 30px;
+      text-align: center;
+      line-height: 1.5;
+    }
+    @media (max-width: 480px) {
+      body {
+        padding: 20px;
+      }
+      .container {
+        padding: 20px;
+      }
+      a.button {
+        display: block;
+        width: 100%;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Reset Your Password</h2>
+    <p>Hello <strong>{{username}}</strong>,</p>
+    <p>We received a request to reset the password for your account. To proceed, please click the button below:</p>
+
+    <p style="text-align: center;">
+      <a href="{{reset_link}}" class="button" target="_blank" rel="noopener noreferrer">Reset Password</a>
+    </p>
+
+    <p>If you did not request a password reset, please ignore this email. The link will expire in <strong>30 minutes</strong> for security reasons.</p>
+
+    <p>Best regards,<br />The Mapster Team</p>
+
+    <div class="footer">
+      <p>© 2025 Mapster. All rights reserved.<br>
+      If you need assistance, contact us at <a href="mailto:{{support_email}}" style="color:#007bff;">{{support_email}}</a>.</p>
+    </div>
+  </div>
+</body>
+</html>
