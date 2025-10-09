@@ -1,3 +1,4 @@
 pub mod handlers_login;
-pub mod mw_req_stamp;
 pub mod handlers_email;
+pub mod handlers_register;
+pub mod mw_req_stamp;

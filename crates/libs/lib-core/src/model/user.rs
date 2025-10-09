@@ -1,10 +1,11 @@
+// region: ---- Modules
 use crate::ctx::Ctx;
 use crate::model::base::{self, prep_fields_for_update, DbBmc};
 use crate::model::modql_utils::time_to_sea_value;
 use crate::model::ModelManager;
 use crate::model::{Error, Result};
 use lib_auth::pwd::{self, ContentToHash};
-use lib_tmail::email::emails::{send_welcome_email, send_verification_email};
+use lib_tmail::email::emails_sender::{send_welcome_email, send_verification_email};
 use modql::field::{Fields, HasSeaFields, SeaField, SeaFields};
 use modql::filter::{
 	FilterNodes, ListOptions, OpValsInt64, OpValsString, OpValsValue,
@@ -15,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::postgres::PgRow;
 use sqlx::FromRow;
 use uuid::Uuid;
+// endregion: ---- Modules
 
 // region:    --- User Types
 #[derive(Clone, Debug, sqlx::Type, derive_more::Display, Deserialize, Serialize)]
@@ -23,6 +25,8 @@ pub enum UserTyp {
 	Sys,
 	User,
 }
+
+// Covert custom UserTyp into sea_query::Value
 impl From<UserTyp> for sea_query::Value {
 	fn from(val: UserTyp) -> Self {
 		val.to_string().into()
@@ -43,7 +47,6 @@ pub struct UserForCreate {
 	pub username: String,
 	pub email: String,
 	pub pwd_clear: String,
-	pub pwd_confirm: String,
 }
 
 #[derive(Fields)]
@@ -62,7 +65,6 @@ pub struct UserForLogin {
 	pub id: i64,
 	pub username: String,
 	pub email: String,
-	pub email_verified: bool,
 
 	// -- pwd and token info
 	pub pwd: Option<String>, // encrypted, #_scheme_id_#....
@@ -75,7 +77,6 @@ pub struct UserForAuth {
 	pub id: i64,
 	pub username: String,
 	pub email: String,
-	pub email_verified: bool,
 
 	// -- token info
 	pub token_salt: Uuid,
@@ -90,12 +91,10 @@ impl UserBy for UserForAuth {}
 
 // Note: Since the entity properties Iden will be given by modql
 //       UserIden does not have to be exhaustive, but just have the columns
-//       we use in our specific code.
 #[derive(Iden)]
 enum UserIden {
 	Id,
 	Username,
-	// Email,
 	Pwd,
 	EmailVerified,
 	EmailVerificationToken,
@@ -135,17 +134,17 @@ impl UserBmc {
 			username,
 			email,
 			pwd_clear,
-			pwd_confirm,
 		} = user_c;
 
-		// Check if pwds match
-		if pwd_clear != pwd_confirm {
-			return Err(Error::PasswordMismatch("Passwords do not match".into()));
-		}
+		if Self::first_by_username::<User>(ctx, mm, &username).await?.is_some() {
+            return Err(Error::UserAlreadyExists { username });
+        }
+        // if Self::first_by_email::<User>(ctx, mm, &email).await?.is_some() {
+        //     return Err(Error::EmailAlreadyExists { email });
+        // }
 
+		// Create hash & salt for pwd
 		let pwd_salt = Uuid::new_v4();
-
-		// Hash pwd
 		let pwd_hash = pwd::hash_pwd(ContentToHash {
 			content: pwd_clear.to_string(),
 			salt: pwd_salt,
@@ -187,7 +186,7 @@ impl UserBmc {
 			},
 		)?;
 
-		// --- 7. Try sending emails (non-blocking error handling)
+		// Try sending emails 
         if let Err(e) = send_welcome_email(&email, &username).await {
             tracing::warn!("Failed to send welcome email to {}: {:?}", email, e);
         }
@@ -254,6 +253,7 @@ impl UserBmc {
 	) -> Result<()> {
 		// -- Prep password
 		let user: UserForLogin = Self::get(ctx, mm, id).await?;
+		
 		let pwd = pwd::hash_pwd(ContentToHash {
 			content: pwd_clear.to_string(),
 			salt: user.pwd_salt,
@@ -361,7 +361,6 @@ mod tests {
 		let ctx = Ctx::root_ctx();
 		let fx_username = "test_create_ok-user-01";
 		let fx_pwd_clear = "test_create_ok pwd 01";
-		let fx_pwd_confirm = "test_create_ok pwd 01";
 		let fx_email = "test_create_ok user123@gmail.com 01";
 
 		// -- Exec
@@ -372,7 +371,6 @@ mod tests {
 				username: fx_username.to_string(),
 				pwd_clear: fx_pwd_clear.to_string(), 
 				email: fx_email.to_string(),
-				pwd_confirm: fx_pwd_confirm.to_string()
 			},
 		)
 		.await?;

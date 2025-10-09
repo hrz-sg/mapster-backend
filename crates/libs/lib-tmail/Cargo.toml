@@ -14,7 +14,17 @@ tokio = { version = "1", features = ["full"] }
 # -- Json
 serde = {version = "1", features = ["derive"] }
 # -- Email
-lettre = "0.11.18"
+lettre = "0.10"
+# -- Env
+dotenvy = "0.15"
 
 [dev-dependencies]
 anyhow = "1"
+
+[profile.test]
+opt-level = 1
+debug = false 
+
+[profile.dev]
+opt-level = 0
+debug = true

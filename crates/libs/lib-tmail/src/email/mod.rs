@@ -1,3 +1,3 @@
-pub mod send_email;
-pub mod emails;
+pub mod templates_sender;
+pub mod emails_sender;
 pub mod error;

@@ -1,5 +1,5 @@
 use crate::model::base::{CommonIden, DbBmc, TimestampIden};
-use lib_utils::time::now_utc;
+use chrono::{DateTime, Utc};
 use modql::field::{SeaField, SeaFields};
 use sea_query::IntoIden;
 
@@ -29,20 +29,18 @@ where
 /// Update the timestamps info for create
 /// (e.g., cid, ctime, and mid, mtime will be updated with the same values)
 fn add_timestamps_for_create(fields: &mut SeaFields, user_id: i64) {
-	let now_unix = now_utc().unix_timestamp();
-
+	let now: DateTime<Utc> = Utc::now();
 	fields.push(SeaField::new(TimestampIden::Cid, user_id));
-	fields.push(SeaField::new(TimestampIden::Ctime, now_unix));
+	fields.push(SeaField::new(TimestampIden::Ctime, now));
 
 	fields.push(SeaField::new(TimestampIden::Mid, user_id));
-	fields.push(SeaField::new(TimestampIden::Mtime, now_unix));
+	fields.push(SeaField::new(TimestampIden::Mtime, now));
 }
 
 /// Update the timestamps info only for update.
 /// (.e.g., only mid, mtime will be udpated)
 fn add_timestamps_for_update(fields: &mut SeaFields, user_id: i64) {
-    let now_unix = now_utc().unix_timestamp();
-    
+	let now: DateTime<Utc> = Utc::now();
 	fields.push(SeaField::new(TimestampIden::Mid, user_id));
-	fields.push(SeaField::new(TimestampIden::Mtime, now_unix));
+	fields.push(SeaField::new(TimestampIden::Mtime, now));
 }
