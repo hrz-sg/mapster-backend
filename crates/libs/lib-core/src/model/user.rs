@@ -136,13 +136,6 @@ impl UserBmc {
 			pwd_clear,
 		} = user_c;
 
-		if Self::first_by_username::<User>(ctx, mm, &username).await?.is_some() {
-            return Err(Error::UserAlreadyExists { username });
-        }
-        // if Self::first_by_email::<User>(ctx, mm, &email).await?.is_some() {
-        //     return Err(Error::EmailAlreadyExists { email });
-        // }
-
 		// Create hash & salt for pwd
 		let pwd_salt = Uuid::new_v4();
 		let pwd_hash = pwd::hash_pwd(ContentToHash {
@@ -166,9 +159,6 @@ impl UserBmc {
 			email_verification_expires_at: Some(expires_at),
 		};
 
-		// Start the transaction
-		let mm = mm.new_with_txn()?;
-
 		// -- Create new user
 		let user_id = base::create::<Self, _>(ctx, &mm, user_fi).await.map_err(
 			|model_error| {
@@ -186,17 +176,14 @@ impl UserBmc {
 			},
 		)?;
 
-		// Try sending emails 
+		// // Try sending emails 
         if let Err(e) = send_welcome_email(&email, &username).await {
-            tracing::warn!("Failed to send welcome email to {}: {:?}", email, e);
+            tracing::info!("Failed to send welcome email to {}: {:?}", email, e);
         }
 
         if let Err(e) = send_verification_email(&email, &username, &verification_token).await {
-            tracing::warn!("Failed to send verification email to {}: {:?}", email, e);
+            tracing::info!("Failed to send verification email to {}: {:?}", email, e);
         }
-
-		// Commit the transaction
-		mm.dbx().commit_txn().await?;
 
 		Ok(user_id)
 	}

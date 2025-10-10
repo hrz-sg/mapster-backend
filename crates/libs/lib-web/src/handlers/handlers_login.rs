@@ -23,6 +23,7 @@ pub async fn api_login_handler(
 		username,
 		pwd: pwd_clear,
 	} = payload;
+
 	let root_ctx = Ctx::root_ctx();
 
 	// -- Get the user.
@@ -99,3 +100,15 @@ pub struct LogoffPayload {
 	logoff: bool,
 }
 // endregion: --- Logoff
+
+
+// Temp endpoint to check
+pub async fn api_test_simple() -> Result<Json<Value>> {
+    println!("✅ TEST ENDPOINT WORKS!");
+    Ok(Json(json!({"status": "ok"})))
+}
+
+pub async fn api_test_with_body(Json(payload): Json<Value>) -> Result<Json<Value>> {
+    println!("✅ TEST WITH BODY: {:?}", payload);
+    Ok(Json(json!({"received": payload})))
+}

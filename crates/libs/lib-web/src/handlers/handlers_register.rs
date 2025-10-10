@@ -2,7 +2,7 @@ use axum::extract::State;
 use axum::response::IntoResponse;
 use axum::Json;
 use lib_core::ctx::Ctx;
-use lib_core::model::user::{UserBmc, UserForCreate, User};
+use lib_core::model::user::{UserBmc, UserForCreate};
 use lib_core::model::ModelManager;
 use serde::Deserialize;
 use serde_json::json;
@@ -32,16 +32,6 @@ pub async fn api_registration_handler(
     }
 
     let root_ctx = Ctx::root_ctx();
-
-    // Check if username exists
-    if UserBmc::first_by_username::<User>(&root_ctx, &mm, &payload.username)
-        .await?
-        .is_some()
-    {
-        return Err(Error::Model(lib_core::model::Error::ValidationFail(
-            "Username already exists".into(),
-        )));
-    }
 
     // Create user
     let user_c = UserForCreate {

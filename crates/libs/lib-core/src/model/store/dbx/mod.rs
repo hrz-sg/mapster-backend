@@ -67,6 +67,8 @@ impl DerefMut for TxnHolder {
 
 impl Dbx {
 	pub async fn begin_txn(&self) -> Result<()> {
+		println!("DEBUG: commit_txn called, with_txn: {}", self.with_txn);
+
 		if !self.with_txn {
 			return Err(Error::CannotBeginTxnWithTxnFalse);
 		}
