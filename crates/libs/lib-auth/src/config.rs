@@ -16,8 +16,10 @@ pub struct AuthConfig {
 	// -- Crypt
 	pub PWD_KEY: Vec<u8>,
 
+	// -- Token
 	pub TOKEN_KEY: Vec<u8>,
-	pub TOKEN_DURATION_SEC: f64,
+	pub ACCESS_TOKEN_TTL: i64,
+    pub REFRESH_TOKEN_TTL: i64,
 }
 
 impl AuthConfig {
@@ -26,8 +28,10 @@ impl AuthConfig {
 			// -- Crypt
 			PWD_KEY: get_env_b64u_as_u8s("SERVICE_PWD_KEY")?,
 
-			TOKEN_KEY: get_env_b64u_as_u8s("SERVICE_TOKEN_KEY")?,
-			TOKEN_DURATION_SEC: get_env_parse("SERVICE_TOKEN_DURATION_SEC")?
+			// -- Token
+            TOKEN_KEY: get_env_b64u_as_u8s("SERVICE_TOKEN_KEY")?,
+            ACCESS_TOKEN_TTL: get_env_parse("ACCESS_TOKEN_TTL")?,
+            REFRESH_TOKEN_TTL: get_env_parse("REFRESH_TOKEN_TTL")?,
 		})
 	}
 }

@@ -31,6 +31,7 @@ pub enum Error {
 		constraint: String,
 	},
 	EmailVerificationTokenInvalid,
+	EmailVerificationTokenExpired,
 	ValidationFail(String),
     PasswordMismatch(String),
 

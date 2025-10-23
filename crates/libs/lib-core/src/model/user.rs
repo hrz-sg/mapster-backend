@@ -272,8 +272,11 @@ impl UserBmc {
 		mm: &ModelManager,
 		token: &str,
 	) -> Result<()> {
+		tracing::debug!("Verifying email with token: {}", token);
+
 		// check if token is empty
 		if token.trim().is_empty() {
+			tracing::error!("Empty verification token");
 			return Err(Error::EmailVerificationTokenInvalid);
 		}
 
@@ -281,21 +284,31 @@ impl UserBmc {
 		let mut query = Query::select();
 		query
 			.from(Self::table_ref())
-			.columns(vec![UserIden::Id])
-			.and_where(Expr::col(UserIden::EmailVerificationToken).eq(token))
-			.and_where(
-				Expr::col(UserIden::EmailVerificationExpiresAt)
-					.gt(time_to_sea_value(serde_json::json!(chrono::Utc::now()))?),
-			);
+			.columns(vec![UserIden::Id, UserIden::EmailVerificationExpiresAt])
+			.and_where(Expr::col(UserIden::EmailVerificationToken).eq(token));
 
 		let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
-		let sqlx_query = sqlx::query_as_with::<_, (i64,), _>(&sql, values);
+		let sqlx_query = sqlx::query_as_with::<_, (i64, Option<chrono::DateTime<chrono::Utc>>), _>(&sql, values);
 		let row = mm.dbx().fetch_optional(sqlx_query).await?;
 
-		let user_id = match row {
-			Some((id,)) => id,
-			None => return Err(Error::EmailVerificationTokenInvalid),
+		tracing::debug!("Found user for token: {:?}", row);
+
+		let (user_id, expires_at) = match row {
+			Some((id, expires)) => (id, expires),
+			None => {
+				tracing::error!("No user found for verification token: {}", token);
+				return Err(Error::EmailVerificationTokenInvalid);
+			}
 		};
+
+		// Check if token is expired
+		if let Some(expires_at) = expires_at {
+			let now = chrono::Utc::now();
+			if now > expires_at {
+				tracing::error!("Verification token expired. Now: {}, Expires: {}", now, expires_at);
+				return Err(Error::EmailVerificationTokenExpired);
+			}
+		}
 
 		// Update user as verified
 		let mut query = Query::update();
@@ -310,7 +323,9 @@ impl UserBmc {
 
 		let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
 		let sqlx_query = sqlx::query_with(&sql, values);
-		let _count = mm.dbx().execute(sqlx_query).await?;
+		let count = mm.dbx().execute(sqlx_query).await?;
+
+		tracing::info!("Successfully verified email for user_id: {}. Rows affected: {}", user_id, count);
 
 		Ok(())
 	}

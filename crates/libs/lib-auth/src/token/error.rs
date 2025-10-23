@@ -6,12 +6,16 @@ pub type Result<T> = core::result::Result<T, Error>;
 pub enum Error {
 	HmacFailNewFromSlice,
 
-	InvalidFormat,
+	InvalidToken,
 	CannotDecodeIdent,
 	CannotDecodeExp,
-	SignatureNotMatching,
+	TokenSignatureMismatch,
 	ExpNotIso,
-	Expired,
+	ExpiredToken,
+	TokenDecodeFailed,
+	TokenCreationFailed,
+	Unauthorized,
+	InvalidSubject
 }
 
 // region:    --- Error Boilerplate
@@ -26,3 +30,16 @@ impl core::fmt::Display for Error {
 
 impl std::error::Error for Error {}
 // endregion: --- Error Boilerplate
+
+/// Convert from jsonwebtoken::Error
+impl From<jsonwebtoken::errors::Error> for Error {
+    fn from(err: jsonwebtoken::errors::Error) -> Self {
+        use jsonwebtoken::errors::ErrorKind::*;
+        match err.kind() {
+            ExpiredSignature => Self::ExpiredToken,
+            InvalidSignature => Self::TokenSignatureMismatch,
+            InvalidToken => Self::InvalidToken,
+            _ => Self::TokenDecodeFailed,
+        }
+    }
+}

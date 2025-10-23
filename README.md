@@ -135,20 +135,6 @@ cargo run --example quick_dev
 
 ---
 
-## 🧱 Environment Variables (example)
-
-These are configured via `.env` or environment in Docker.
-
-```
-DATABASE_URL=postgres://postgres:welcome@localhost:5433/postgres
-SMTP_SERVER=smtp.example.com
-SMTP_USERNAME=no-reply@mapster.local
-SMTP_PASSWORD=secret
-EMAIL_VERIFICATION_BASE_URL=http://localhost:8080/api/verify
-```
-
----
-
 ## 🛡️ Access & Repository Policy
 
 This repository is **private**.  

@@ -27,8 +27,8 @@ async fn main() -> Result<()> {
     let response = client
         .post(&format!("{}/api/register", BASE_URL))
         .json(&json!({
-            "username": "testuser",
-            "email": "testuser@example.com",
+            "username": "hiuser",
+            "email": "test@gmail.com",
             "pwd": "password123",
             "pwd_confirm": "password123"
         }))

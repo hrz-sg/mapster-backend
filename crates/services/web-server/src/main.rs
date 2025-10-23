@@ -11,7 +11,7 @@ use axum::response::Html;
 use config::web_config;
 
 use lib_web::handlers::mw_req_stamp::mw_req_stamp_resolver;
-use lib_web::middleware::mw_auth::{mw_ctx_require, mw_ctx_resolver};
+use lib_web::middleware::mw_auth::mw_ctx_resolver;
 // use lib_web::middleware::mw_res_map::mw_reponse_map;
 use lib_web::routes::routes_static;
 
@@ -44,8 +44,8 @@ async fn main() -> Result<()> {
     let mm = ModelManager::new().await?;
 
     let routes_hello = Router::new()
-        .route("/hello", get(|| async { Html("Hello world") }))
-        .route_layer(middleware::from_fn(mw_ctx_require));
+        .route("/hello", get(|| async { Html("Hello world") }));
+        // .route_layer(middleware::from_fn(mw_ctx_require));
 
     // -- Define Routes
     let routes_all = Router::new()
@@ -62,7 +62,7 @@ async fn main() -> Result<()> {
         .layer(middleware::from_fn(mw_req_stamp_resolver))
         .fallback_service(routes_static::serve_dir(&web_config().WEB_FOLDER));
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
     println!("{:12} - {addr}\n", "LISTENING");
 
     let listener = TcpListener::bind(addr).await.unwrap();

@@ -40,4 +40,3 @@ pub struct VerifyEmailPayload {
     pub token: String,
 }
 // endregion: --- Email Verification
-

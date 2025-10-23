@@ -9,6 +9,10 @@ doctest = false
 [dependencies]
 # -- App Libs
 lib-utils = { path = "../../libs/lib-utils"}
+# -- Axum 
+axum = { workspace = true}
+# -- Chrono
+chrono = { workspace = true}
 # -- Async
 tokio = { version = "1", features = ["full"] }
 # -- Json
@@ -17,6 +21,7 @@ serde = {version = "1", features = ["derive"] }
 hmac = "^0.12"
 sha2 = "0.10.9"
 blake3 = "1.8.2"
+jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 # -- Hashing (pwd-scheme02)
 argon2 = {version = "0.5.3", features = ["std"]}
 # -- Others
