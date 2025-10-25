@@ -50,12 +50,12 @@ async fn main() -> Result<()> {
     
     print_response(response).await?;
 
-    // Test logoff
-    println!("\nTesting logoff ...");
+    // Test logout
+    println!("\nTesting logout ...");
     let response = client
-        .post(&format!("{}/api/logoff", BASE_URL))
+        .post(&format!("{}/api/logout", BASE_URL))
         .json(&json!({
-            "logoff": true
+            "logout": true
         }))
         .send()
         .await?;

@@ -7,16 +7,21 @@ pub use crate::error::{Error, Result};
 
 pub(crate) const AUTH_TOKEN: &str = "auth-token";
 
-pub(crate) fn set_token_cookie(cookies: &Cookies, user: &str, salt: Uuid) -> Result<()> {
+pub(crate) fn set_token_cookie(
+    cookies: &Cookies, 
+    user: &str, 
+    salt: Uuid
+) -> Result<String> {
     let (access_token, _refresh_token) = generate_web_tokens(user, salt)?;
 
-    let mut cookie = Cookie::new(AUTH_TOKEN, access_token);
+    let mut cookie = Cookie::new(AUTH_TOKEN, access_token.clone());
     cookie.set_http_only(true);
+    cookie.set_secure(!cfg!(debug_assertions)); // true only in release
     cookie.set_path("/"); // Default path is the URI path of the request (which is '/api/login' for login request)
 
     cookies.add(cookie);
 
-    Ok(())
+    Ok(access_token)
 }
 
 pub(crate) fn remove_token_cookie(cookies: &Cookies) -> Result<()> {

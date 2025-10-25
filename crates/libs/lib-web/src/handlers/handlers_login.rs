@@ -4,10 +4,9 @@ use axum::extract::State;
 use axum::Json;
 use lib_auth::pwd::{self, ContentToHash, SchemeStatus};
 use lib_core::ctx::Ctx;
-use lib_core::model::user::{UserBmc, UserForLogin};
+use lib_core::model::user::{UserBmc, UserDTO, UserForLogin};
 use lib_core::model::ModelManager;
-use serde::Deserialize;
-use serde_json::{json, Value};
+use serde::{Deserialize, Serialize};
 use tower_cookies::Cookies;
 use tracing::debug;
 
@@ -16,7 +15,7 @@ pub async fn api_login_handler(
 	State(mm): State<ModelManager>,
 	cookies: Cookies,
 	Json(payload): Json<LoginPayload>,
-) -> Result<Json<Value>> {
+) -> Result<Json<LoginResponse>> {
 	debug!("{:<12} - api_login_handler", "HANDLER");
 
 	let LoginPayload {
@@ -54,16 +53,15 @@ pub async fn api_login_handler(
 	}
 
 	// -- Set web token.
-	token::set_token_cookie(&cookies, &user.username, user.token_salt)?;
+	let access_token = token::set_token_cookie(&cookies, &user.username, user.token_salt)?;
 
 	// Create the success body.
-	let body = Json(json!({
-		"result": {
-			"success": true
-		}
-	}));
-
-	Ok(body)
+	 Ok(Json(LoginResponse {
+        success: true,
+        message: format!("Welcome back, {}!", username),
+        user: UserDTO { id: user_id, username },
+        token: Some(access_token),
+    }))
 }
 
 #[derive(Debug, Deserialize)]
@@ -71,32 +69,44 @@ pub struct LoginPayload {
 	username: String,
 	pwd: String,
 }
+
+#[derive(Serialize)]
+pub struct LoginResponse {
+	success: bool,
+	message: String,
+	user: UserDTO,
+	token: Option<String>,
+}
 // endregion: --- Login
 
-// region:    --- Logoff
-pub async fn api_logoff_handler(
+// region:    --- Logout
+pub async fn api_logout_handler(
 	cookies: Cookies,
-	Json(payload): Json<LogoffPayload>,
-) -> Result<Json<Value>> {
-	debug!("{:<12} - api_logoff_handler", "HANDLER");
-	let should_logoff = payload.logoff;
+	Json(payload): Json<LogoutPayload>,
+) -> Result<Json<LogoutResponse>> {
+	debug!("{:<12} - api_logout_handler", "HANDLER");
 
-	if should_logoff {
+	let should_logout = payload.logout;
+
+	if should_logout {
 		token::remove_token_cookie(&cookies)?;
 	}
 
-	// Create the success body.
-	let body = Json(json!({
-		"result": {
-			"logged_off": should_logoff
-		}
-	}));
-
-	Ok(body)
+	// Create and return the success body.
+	Ok(Json(LogoutResponse {
+		success: true,
+		message: "Logged out successfully!".to_string()
+    }))
 }
 
 #[derive(Debug, Deserialize)]
-pub struct LogoffPayload {
-	logoff: bool,
+pub struct LogoutPayload {
+	logout: bool,
 }
-// endregion: --- Logoff
+
+#[derive(Serialize)]
+pub struct LogoutResponse {
+	success: bool,
+	message: String
+}
+// endregion: --- Logout

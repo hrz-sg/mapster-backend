@@ -4,8 +4,11 @@ use crate::model::base::{self, prep_fields_for_update, DbBmc};
 use crate::model::modql_utils::time_to_sea_value;
 use crate::model::ModelManager;
 use crate::model::{Error, Result};
+use chrono::Utc;
 use lib_auth::pwd::{self, ContentToHash};
-use lib_tmail::email::emails_sender::{send_welcome_email, send_verification_email};
+use lib_tmail::email::emails_sender::{send_reset_pwd_email, send_verification_email, send_welcome_email};
+use lib_tmail::tmail_config;
+use lib_auth::auth_config;
 use modql::field::{Fields, HasSeaFields, SeaField, SeaFields};
 use modql::filter::{
 	FilterNodes, ListOptions, OpValsInt64, OpValsString, OpValsValue,
@@ -55,6 +58,7 @@ pub struct UserForInsert {
 	pub email: String,
 	pub pwd: String,
 	pub pwd_salt: Uuid,
+	pub token_salt: Uuid,
 	pub email_verified: bool,
 	pub email_verification_token: Option<String>,
 	pub email_verification_expires_at: Option<chrono::DateTime<chrono::Utc>>,
@@ -82,6 +86,11 @@ pub struct UserForAuth {
 	pub token_salt: Uuid,
 }
 
+#[derive(Serialize)]
+pub struct UserDTO {
+	pub id: i64,
+    pub username: String,
+}
 /// Marker trait
 pub trait UserBy: HasSeaFields + for<'r> FromRow<'r, PgRow> + Unpin + Send {}
 
@@ -95,10 +104,14 @@ impl UserBy for UserForAuth {}
 enum UserIden {
 	Id,
 	Username,
+	Email,
 	Pwd,
 	EmailVerified,
 	EmailVerificationToken,
 	EmailVerificationExpiresAt,
+	TokenSalt,
+	ResetToken,
+	ResetTokenExpiresAt,
 }
 
 #[derive(FilterNodes, Deserialize, Default, Debug)]
@@ -136,7 +149,7 @@ impl UserBmc {
 			pwd_clear,
 		} = user_c;
 
-		// Create hash & salt for pwd
+		// -- Create hash & salt for pwd
 		let pwd_salt = Uuid::new_v4();
 		let pwd_hash = pwd::hash_pwd(ContentToHash {
 			content: pwd_clear.to_string(),
@@ -144,9 +157,14 @@ impl UserBmc {
 		})
 		.await?;
 
-		// Generate verification token and expiration
+		// -- Generate verification token and expiration
 		let verification_token = uuid::Uuid::new_v4().to_string();
-		let expires_at = chrono::Utc::now() + chrono::Duration::minutes(30);
+		let config = auth_config();
+		let expires_at = Utc::now() + chrono::Duration::minutes(config.VERIFY_TOKEN_TTL_MIN);
+
+
+		// -- Generate token salt
+		let token_salt = Uuid::new_v4();
 
 		// -- Create the user row
 		let user_fi = UserForInsert {
@@ -154,6 +172,7 @@ impl UserBmc {
 			email: email.to_string(),
 			pwd: pwd_hash,
 			pwd_salt,
+			token_salt,
 			email_verified: false,
 			email_verification_token: Some(verification_token.clone()),
 			email_verification_expires_at: Some(expires_at),
@@ -181,9 +200,11 @@ impl UserBmc {
             tracing::info!("Failed to send welcome email to {}: {:?}", email, e);
         }
 
-        if let Err(e) = send_verification_email(&email, &username, &verification_token).await {
-            tracing::info!("Failed to send verification email to {}: {:?}", email, e);
-        }
+        tokio::spawn(async move {
+		if let Err(e) = send_verification_email(&email, &username, &verification_token).await {
+				tracing::warn!("Failed to send verification email: {:?}", e);
+			}
+		});
 
 		Ok(user_id)
 	}
@@ -267,6 +288,158 @@ impl UserBmc {
 		Ok(())
 	}
 
+	pub async fn update_token_salt(ctx: &Ctx, mm: &ModelManager, id: i64) -> Result<()> {
+        let new_salt = Uuid::new_v4();
+
+		// -- Prep fields
+		let mut fields = SeaFields::new(vec![SeaField::new(UserIden::TokenSalt, new_salt)]);
+		prep_fields_for_update::<Self>(&mut fields, ctx.user_id());
+
+		// -- Build query
+		let fields = fields.for_sea_update();
+        let mut query = Query::update();
+        query
+            .table(Self::table_ref())
+            .values(fields)
+            .and_where(Expr::col(UserIden::Id).eq(id));
+
+        let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
+        mm.dbx().execute(sqlx::query_with(&sql, values)).await?;
+
+        tracing::info!("Token salt updated for user_id {}", id);
+        Ok(())
+    }
+
+	pub async fn request_password_reset(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        email: &str,
+    ) -> Result<()> {
+        tracing::debug!("Requesting password reset for email: {}", email);
+
+        // -- Find User by email
+        let mut query = Query::select();
+        query
+            .from(Self::table_ref())
+            .columns(vec![UserIden::Id, UserIden::Username])
+            .and_where(Expr::col(UserIden::Email).eq(email));
+
+        let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
+        let sqlx_query = sqlx::query_as_with::<_, (i64, String), _>(&sql, values);
+        let user_opt = mm.dbx().fetch_optional(sqlx_query).await?;
+
+        let (user_id, username) = match user_opt {
+            Some(u) => u,
+            None => {
+                tracing::warn!("Password reset requested for non-existent email: {}", email);
+                return Ok(()); // stop enumeration
+            }
+        };
+
+        // -- generate token and expiration
+        let reset_token = Uuid::new_v4().to_string();
+        let config = auth_config();
+		let expires_at = Utc::now() + chrono::Duration::minutes(config.RESET_TOKEN_TTL_MIN);
+
+        // -- Save token in DB
+        let mut update = Query::update();
+        update
+            .table(Self::table_ref())
+            .values(vec![
+                (UserIden::ResetToken, Expr::value(reset_token.clone())),
+                (UserIden::ResetTokenExpiresAt, Expr::value(expires_at)),
+            ])
+            .and_where(Expr::col(UserIden::Id).eq(user_id));
+
+        let (sql, values) = update.build_sqlx(PostgresQueryBuilder);
+        mm.dbx().execute(sqlx::query_with(&sql, values)).await?;
+
+        // -- Send email
+        let config = tmail_config();
+        let reset_link = format!("{}/reset?token={}", config.PASSWORD_RESET_BASE_URL, reset_token);
+
+        if let Err(e) = send_reset_pwd_email(email, &reset_link, &username).await {
+            tracing::error!("Failed to send reset email to {}: {:?}", email, e);
+        } else {
+            tracing::info!("Password reset email sent to {}", email);
+        }
+
+        Ok(())
+    }
+
+	pub async fn reset_password(
+        ctx: &Ctx,
+        mm: &ModelManager,
+        token: &str,
+        new_password: &str,
+    ) -> Result<()> {
+        tracing::debug!("Resetting password with token: {}", token);
+
+        // -- Find User by token
+        let mut query = Query::select();
+        query
+            .from(Self::table_ref())
+            .columns(vec![UserIden::Id, UserIden::ResetTokenExpiresAt])
+            .and_where(Expr::col(UserIden::ResetToken).eq(token));
+
+        let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
+        let sqlx_query =
+            sqlx::query_as_with::<_, (i64, Option<chrono::DateTime<Utc>>), _>(&sql, values);
+        let row = mm.dbx().fetch_optional(sqlx_query).await?;
+
+        let (user_id, expires_at) = match row {
+            Some((id, exp)) => (id, exp),
+            None => {
+                tracing::warn!("Invalid reset token used: {}", token);
+                return Err(Error::ResetTokenInvalid);
+            }
+        };
+
+        // -- Check if token is expired
+        if let Some(exp) = expires_at {
+            if Utc::now() > exp {
+                tracing::warn!("Reset token expired for user_id {}", user_id);
+                return Err(Error::ResetTokenExpired);
+            }
+        }
+
+        // -- Hash new password
+        let user: UserForLogin = Self::get(&ctx, mm, user_id).await?;
+        let new_pwd = lib_auth::pwd::hash_pwd(lib_auth::pwd::ContentToHash {
+            content: new_password.to_string(),
+            salt: user.pwd_salt,
+        })
+        .await?;
+
+
+        // -- Update password, token_salt and clear reset_token
+        let mut update = Query::update();
+        update
+            .table(Self::table_ref())
+            .values(vec![
+                (UserIden::Pwd, Expr::value(new_pwd)),
+                (UserIden::ResetToken, Expr::value(Option::<String>::None)),
+                (
+                    UserIden::ResetTokenExpiresAt,
+                    Expr::value(Option::<chrono::DateTime<Utc>>::None),
+                ),
+            ])
+            .and_where(Expr::col(UserIden::Id).eq(user_id));
+
+        let (sql, values) = update.build_sqlx(PostgresQueryBuilder);
+        mm.dbx().execute(sqlx::query_with(&sql, values)).await?;
+
+        // -- Invalidate all tokens creating new token
+		UserBmc::update_token_salt(&ctx, mm, user_id).await?;
+
+        tracing::info!(
+            "Password reset successful for user_id {}, tokens invalidated",
+            user_id
+        );
+
+        Ok(())
+    }
+	
 	pub async fn verify_email(
 		_ctx: &Ctx,
 		mm: &ModelManager,

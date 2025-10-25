@@ -2,7 +2,8 @@ use axum::{extract::State, http::HeaderMap, Json};
 use serde_json::json;
 use lib_core::model::user::{UserBmc, UserForAuth};
 use lib_core::ctx::Ctx;
-use lib_auth::token::{validate_web_token, generate_web_tokens, access_token_ttl};
+use lib_auth::token::{validate_web_token, generate_web_tokens};
+use lib_auth::auth_config;
 use lib_core::model::ModelManager;
 use crate::error::{Error, Result};
 use crate::utils::token::extract_bearer_token;
@@ -44,7 +45,7 @@ pub async fn api_refresh_token_handler(
     Ok(Json(json!({
         "access_token": access_token,
         "refresh_token": refresh_token,
-        "expires_in": access_token_ttl()
+        "expires_in": auth_config().ACCESS_TOKEN_TTL
     })))
 
 }

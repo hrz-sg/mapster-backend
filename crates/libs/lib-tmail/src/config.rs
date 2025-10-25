@@ -14,6 +14,7 @@ pub fn tmail_config() -> &'static EmailConfig {
 #[allow(non_snake_case)]
 #[derive(Debug, Clone)]
 pub struct EmailConfig {
+    pub PASSWORD_RESET_BASE_URL: String,
     pub SMTP_USERNAME: String,
     pub SMTP_PWD: String,
     pub SMTP_SERVER: String,
@@ -26,6 +27,7 @@ pub struct EmailConfig {
 impl EmailConfig {
     fn load_from_env() -> lib_utils::envs::Result<Self> {
         Ok(Self {
+            PASSWORD_RESET_BASE_URL: get_env("PASSWORD_RESET_BASE_URL")?,
             SMTP_USERNAME: get_env("SMTP_USERNAME")?,
             SMTP_PWD: get_env("SMTP_PWD")?,
             SMTP_SERVER: get_env("SMTP_SERVER")?,

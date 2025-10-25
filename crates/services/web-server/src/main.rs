@@ -15,7 +15,7 @@ use lib_web::middleware::mw_auth::mw_ctx_resolver;
 // use lib_web::middleware::mw_res_map::mw_reponse_map;
 use lib_web::routes::routes_static;
 
-use crate::web::{routes_email, routes_login, routes_register};
+use crate::web::{routes_email, routes_login, routes_register, routes_token};
 
 use axum::{middleware, Router};
 use axum::routing::get;
@@ -52,6 +52,7 @@ async fn main() -> Result<()> {
         .merge(routes_register::routes(mm.clone()))   
         .merge(routes_login::routes(mm.clone()))   
         .merge(routes_email::routes(mm.clone()))
+        .merge(routes_token::routes(mm.clone()))
         .merge(routes_hello)
         // .layer(middleware::map_response(mw_reponse_map))
         .layer(middleware::from_fn_with_state(

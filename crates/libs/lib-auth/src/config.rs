@@ -20,6 +20,10 @@ pub struct AuthConfig {
 	pub TOKEN_KEY: Vec<u8>,
 	pub ACCESS_TOKEN_TTL: i64,
     pub REFRESH_TOKEN_TTL: i64,
+
+	// -- Verification & Reset
+    pub RESET_TOKEN_TTL_MIN: i64,
+    pub VERIFY_TOKEN_TTL_MIN: i64,
 }
 
 impl AuthConfig {
@@ -32,6 +36,10 @@ impl AuthConfig {
             TOKEN_KEY: get_env_b64u_as_u8s("SERVICE_TOKEN_KEY")?,
             ACCESS_TOKEN_TTL: get_env_parse("ACCESS_TOKEN_TTL")?,
             REFRESH_TOKEN_TTL: get_env_parse("REFRESH_TOKEN_TTL")?,
+
+			// -- Verification & Reset
+            RESET_TOKEN_TTL_MIN: get_env_parse("RESET_TOKEN_TTL_MIN")?,
+            VERIFY_TOKEN_TTL_MIN: get_env_parse("VERIFY_TOKEN_TTL_MIN")?,
 		})
 	}
 }

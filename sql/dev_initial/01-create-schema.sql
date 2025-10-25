@@ -12,7 +12,11 @@ CREATE TABLE "user" (
     -- Auth
     pwd VARCHAR(256),
     pwd_salt uuid NOT NULL DEFAULT gen_random_uuid(),
-    token_salt uuid NOT NULL DEFAULT gen_random_uuid(),
+
+    -- Token
+    token_salt UUID NOT NULL DEFAULT gen_random_uuid(),
+    reset_token TEXT,
+    reset_token_expires_at TIMESTAMPTZ,
 
     -- Email verification
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,

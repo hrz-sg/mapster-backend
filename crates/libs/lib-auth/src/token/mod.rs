@@ -85,14 +85,3 @@ fn decode_jwt_token<T: Into <String>> (
 
 	Ok(token_decoded.claims)
 }
-
-
-// region: --- Tokens TTL
-pub fn access_token_ttl() -> i64 {
-    auth_config().ACCESS_TOKEN_TTL
-}
-
-pub fn refresh_token_ttl() -> i64 {
-    auth_config().REFRESH_TOKEN_TTL
-}
-// endregion: --- Tokens TTL

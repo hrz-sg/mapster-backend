@@ -34,6 +34,8 @@ pub enum Error {
 	EmailVerificationTokenExpired,
 	ValidationFail(String),
     PasswordMismatch(String),
+	ResetTokenInvalid,
+	ResetTokenExpired,
 
 	// -- ModelManager
 	CantCreateModelManagerProvider(String),
