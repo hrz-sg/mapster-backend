@@ -33,10 +33,8 @@ impl EmailConfig {
             SMTP_SERVER: get_env("SMTP_SERVER")?,
             SMTP_PORT: get_env_parse("SMTP_PORT")?,
             USE_TLS: get_env_parse("SMTP_USE_TLS")?,
-            EMAIL_VERIFICATION_BASE_URL: get_env_parse("EMAIL_VERIFICATION_BASE_URL")
-                .unwrap_or_else(|_| "http://localhost:8000/api/auth/verify".to_string()),
-            SUPPORT_EMAIL: std::env::var("SUPPORT_EMAIL")
-                .unwrap_or_else(|_| "support@mapster.com".to_string()),
+            EMAIL_VERIFICATION_BASE_URL: get_env_parse("EMAIL_VERIFICATION_BASE_URL")?,
+            SUPPORT_EMAIL: get_env_parse("SUPPORT_EMAIL")?,
         })
     }
 }

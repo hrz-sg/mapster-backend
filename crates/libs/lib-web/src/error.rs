@@ -103,8 +103,6 @@ impl Error {
 // endregion: ---- Error Boilerplate
 
 // region: ---- ClientError
-
-
 #[derive(Debug, Serialize, strum_macros::AsRefStr)]
 #[serde(tag = "message", content = "detail")]
 #[allow(non_camel_case_types)]
@@ -120,5 +118,4 @@ pub enum ClientError {
 
 	SERVICE_ERROR,
 }
-
 // endregion: ---- ClientError

@@ -14,12 +14,21 @@ pub struct Post {
     pub title: String,
     pub description: String,
     pub is_published: bool,
+    pub cover_media_url: Option<String>,
+    pub thumbnail_url: Option<String>,
+    pub media_count: i32,
+    pub has_video: bool,
 }
 
 #[derive(Fields, Deserialize)]
 pub struct PostForCreate {
     pub title: String,
     pub description: String,
+    pub is_published: Option<bool>,
+    pub cover_media_url: Option<String>,
+    pub thumbnail_url: Option<String>,
+    pub media_count: Option<i32>,
+    pub has_video: Option<bool>,
 }
 
 #[derive(Fields, Default, Deserialize)]
@@ -32,9 +41,10 @@ pub struct PostForUpdate {
 #[derive(FilterNodes, Deserialize, Default, Debug)]
 pub struct PostFilter {
     id: Option<OpValsInt64>,
-
     title: Option<OpValsString>,
     is_published: Option<OpValsBool>,
+    has_video: Option<OpValsBool>,
+    media_count: Option<OpValsInt64>,
 }
 
 // endregion: ---- Post Types
@@ -75,6 +85,7 @@ impl PostBmc {
     pub async fn delete(ctx: &Ctx, mm: &ModelManager, id: i64) -> Result<()> {
         base::delete::<Self>(ctx, mm, id).await
     }
+
 }
 
 // endregion: ---- PostBmc
@@ -99,12 +110,23 @@ mod tests {
         let ctx = Ctx::root_ctx();
         let fx_title: &'static str = "test_create_ok title";
         let fx_description: &'static str = "test_create_ok description";
+        let fx_is_published: Option<bool> = Some(true);
+        let fx_cover_media_url: Option<String> = Some(String::from("https://plus.unsplash.com/premium_photo-1759484628323-142ec8547fb9?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=774"));
+        let fx_thumbnail_url: Option<String> = Some(String::from("https://plus.unsplash.com/premium_photo-1759484628323-142ec8547fb9?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=774"));
+        let fx_media_count: Option<i32> = Some(1);
+        let fx_has_video: Option<bool> = Some(false);
 
         // -- Exec
         let post_c = PostForCreate {
             title: fx_title.to_string(),
             description: fx_description.to_string(),
+            is_published: fx_is_published,
+            cover_media_url: fx_cover_media_url,
+            thumbnail_url: fx_thumbnail_url,
+            media_count: fx_media_count,
+            has_video: fx_has_video,
         };
+
         let id = PostBmc::create(&ctx, &mm, post_c).await?;
 
         // -- Check

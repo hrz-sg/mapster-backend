@@ -3,9 +3,11 @@
 mod base;
 mod error;
 mod store;
+mod modql_utils;
+
 pub mod post;
+pub mod post_media;
 pub mod user;
-pub mod modql_utils;
 
 use crate::model::store::{dbx::Dbx, new_db_pool};
 pub use self::error::{Error, Result};

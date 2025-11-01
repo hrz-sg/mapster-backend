@@ -11,6 +11,7 @@ doctest = false
 lib-utils = { path = "../../libs/lib-utils"}
 lib-auth = { path = "../../libs/lib-auth"}
 lib-tmail = { path = "../../libs/lib-tmail"}
+lib-storage = { path = "../../libs/lib-storage"}
 # -- Async
 tokio = { version = "1", features = ["full"] }
 # -- Json
@@ -23,13 +24,12 @@ sea-query = { workspace = true }
 sea-query-binder = { workspace = true }
 modql = { workspace = true }
 # -- Tracing
-tracing = "0.1"
+tracing = { workspace = true }
 # -- Others
 uuid = {version = "1", features = ["v4","fast-rng",]}
 time = { workspace = true }
 chrono = { workspace = true}
 derive_more = { workspace = true }
-reqwest = "^0.12"
 base64-url = "3.0.0"
 strum_macros = "0.27.2"
 

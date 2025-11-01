@@ -58,10 +58,10 @@ Hot reload setup using `cargo-watch`.
 
 ```sh
 # Terminal 1 — start the web server
-cargo watch -q -c -w crates/services/web-server/src/              -w crates/libs/ -w .cargo/              -x "run -p web-server"
+cargo watch -q -c -w crates/services/web-server/src/    -w crates/libs/ -w .cargo/    -x "run -p web-server"
 
 # Terminal 2 — run quick_dev example
-cargo watch -q -c -w crates/services/web-server/examples/              -x "run -p web-server --example quick_dev"
+cargo watch -q -c -w crates/services/web-server/examples/    -x "run -p web-server --example quick_dev"
 ```
 
 ---

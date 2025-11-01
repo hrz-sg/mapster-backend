@@ -1,6 +1,7 @@
 use std::sync::OnceLock;
 use lib_utils::envs::get_env;
 
+// region: --- Core Config
 pub fn core_config() -> &'static CoreConfig {
     static  INSTANCE: OnceLock<CoreConfig> = OnceLock::new();
 
@@ -31,3 +32,4 @@ impl CoreConfig {
 		})
 	}
 }
+// endregion: --- Core Config

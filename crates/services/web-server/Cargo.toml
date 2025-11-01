@@ -10,6 +10,7 @@ lib-auth = { path = "../../libs/lib-auth"}
 lib-core = { path = "../../libs/lib-core"}
 lib-web = { path = "../../libs/lib-web"}
 lib-tmail = { path = "../../libs/lib-tmail"}
+lib-storage = { path = "../../libs/lib-storage"}
 # -- Async
 tokio = { version = "1", features = ["full"] }
 # -- Json
@@ -30,4 +31,4 @@ derive_more = { workspace = true }
 dotenvy = "0.15"
 
 [dev-dependencies]
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { workspace = true }

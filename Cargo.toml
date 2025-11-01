@@ -10,6 +10,7 @@ members = [
     "crates/libs/lib-auth", # e.g., pwd, token
     "crates/libs/lib-core", # e.g., model, ctx, config
     "crates/libs/lib-tmail", # e.g., email verification, etc..
+    "crates/libs/lib-storage", # e.g.,cloud media
 
     # -- App Services
     "crates/services/web-server",

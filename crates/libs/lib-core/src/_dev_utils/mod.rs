@@ -50,6 +50,11 @@ pub async fn seed_posts(
             PostForCreate {
                 title: title.to_string(),
                 description: description.to_string(),
+                is_published: None,
+                cover_media_url: None,
+                thumbnail_url: None,
+                media_count: None,
+                has_video: None,
             }
         )
         .await?;
