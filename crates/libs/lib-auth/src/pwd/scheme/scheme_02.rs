@@ -54,7 +54,7 @@ fn get_argon2() -> &'static Argon2<'static> {
     })
 }
 
-// region: ---- 
+// region: ---- Tests
 #[cfg(test)]
 mod tests {
     use crate::pwd::ContentToHash;
@@ -82,4 +82,4 @@ mod tests {
 		Ok(())
     }
 }
-// endregion: ---- 
+// endregion: ---- Tests

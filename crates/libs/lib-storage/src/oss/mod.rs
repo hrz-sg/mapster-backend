@@ -4,7 +4,7 @@ use ali_oss_rs::acl::ObjectAclOperations;
 use ali_oss_rs::object::{ObjectOperations};
 use ali_oss_rs::object_common::GetObjectOptions;
 use ali_oss_rs::object_common::{ObjectAcl, PutObjectOptions};
-use lib_utils::mime::get_mime_from_bytes;
+use lib_utils::file::validate_file;
 use tracing::{debug, info};
 use crate::config::oss_config;
 
@@ -37,14 +37,15 @@ impl OssClient {
     }
 
     /// --- Load file in OSS and make it public
-    pub async fn upload(&self, filename: &str, data: &[u8]) -> Result<String> {
+    pub async fn upload(&self, filename: &str, data: &[u8]) -> Result<(String, String)> {
         info!("{:<12} - Uploading file: {}", "OSS", filename);
         debug!("{:<12} - File size: {} bytes", "OSS", data.len());
-                
-        get_mime_from_bytes(data, filename);
+        
+        let mime = validate_file(filename, data)?;
 
         let put_options = PutObjectOptions {
             content_md5: None,
+            mime_type: Some(mime.clone()),
             ..Default::default()
         };
 
@@ -60,9 +61,8 @@ impl OssClient {
 
         info!("{:<12} - File uploaded successfully: {}", "OSS", filename);
 
-        Ok(self.public_url(filename))
+        Ok((self.public_url(filename), mime))
     }
-
 
     /// --- Download file as bites
     pub async fn download(&self, filename: &str) -> Result<Vec<u8>> {
@@ -77,7 +77,6 @@ impl OssClient {
         Ok(result)
     }
 
-
     /// --- Delete file
     pub async fn delete(&self, filename: &str) -> Result<()> {
         info!("{:<12} - Deleting file: {}", "OSS", filename);
@@ -90,6 +89,35 @@ impl OssClient {
         info!("{:<12} - Deleted file: {}", "OSS", filename);
 
         Ok(())
+    }
+
+    /// --- Delete file by URL
+    pub async fn delete_by_url(&self, url: &str) -> Result<()> {
+        info!("{:<12} - Deleting by URL: {}", "OSS", url);
+
+        // -- Check if URL is user's public_base
+        if !url.starts_with(&self.public_base) {
+            return Err(Error::UploadError(format!(
+                "URL '{}' does not belong to public base '{}'",
+                url, self.public_base
+            )));
+        }
+
+        // -- Take file name (everything after public_base/)
+        let mut filename = url[self.public_base.len()..].to_string();
+        filename = filename.trim_start_matches('/').to_string();
+
+        if filename.is_empty() {
+            return Err(Error::UploadError(format!(
+                "Could not extract filename from URL: {}",
+                url
+            )));
+        }
+
+        debug!("{:<12} - Extracted filename: {}", "OSS", filename);
+
+        // -- Delete file from OSS
+        self.delete(&filename).await
     }
 
     /// --- Check if object exists

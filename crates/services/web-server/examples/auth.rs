@@ -1,15 +1,15 @@
 use serde_json::json;
 
-pub type Result<T> = core::result::Result<T, Error>;
-pub type Error = Box<dyn std::error::Error>;
+type Result<T> = core::result::Result<T, Error>;
+type Error = Box<dyn std::error::Error>;
 
-pub const BASE_URL: &str = "http://localhost:8080";
+const BASE_URL: &str = "http://localhost:8080";
 
-pub fn create_client() -> reqwest::Client {
+fn create_client() -> reqwest::Client {
     reqwest::Client::new()
 }
 
-pub async fn print_response(response: reqwest::Response) -> Result<()> {
+async fn print_response(response: reqwest::Response) -> Result<()> {
     println!("Status: {}", response.status());
     println!("Headers: {:#?}", response.headers());
     println!("Body: {}", response.text().await?);

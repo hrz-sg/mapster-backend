@@ -4,9 +4,6 @@ pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug, Serialize)]
 pub enum Error {
-	FileTooLarge,
-	UnsupportedMime,
-
     // Aliyun OSS operations
     UploadError(String),
     DeleteError(String),
@@ -26,3 +23,10 @@ impl core::fmt::Display for Error {
 
 impl std::error::Error for Error {}
 // endregion: --- Error Boilerplate
+
+/// Convert from file::Error
+impl From<lib_utils::file::Error> for Error {
+    fn from(e: lib_utils::file::Error) -> Self {
+        Error::UploadError(e.to_string())
+    }
+}

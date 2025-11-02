@@ -29,6 +29,6 @@ time = { workspace = true }
 uuid = {version = "1", features = ["v4","fast-rng",]}
 derive_more = { workspace = true }
 dotenvy = "0.15"
+reqwest = { workspace = true }
 
 [dev-dependencies]
-reqwest = { workspace = true }

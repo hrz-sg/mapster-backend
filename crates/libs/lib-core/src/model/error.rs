@@ -1,6 +1,8 @@
 use crate::model::store::dbx;
 use derive_more::From;
 use lib_auth::pwd;
+use lib_storage::oss;
+use lib_utils::file;
 use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr};
 use sqlx::error::DatabaseError;
@@ -104,3 +106,17 @@ impl core::fmt::Display for Error {
 impl std::error::Error for Error {}
 
 // endregion: --- Error Boilerplate
+
+// region: ---- Froms
+impl From<file::Error> for Error {
+    fn from(err: file::Error) -> Self {
+        Self::ValidationFail(err.to_string())
+    }
+}
+
+impl From<oss::Error> for Error {
+    fn from(err: oss::Error) -> Self {
+        Self::ValidationFail(format!("OSS error: {err}"))
+    }
+}
+// endregion: ---- Froms

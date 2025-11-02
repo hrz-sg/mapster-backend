@@ -48,6 +48,7 @@ pub async fn seed_posts(
             ctx, 
             mm, 
             PostForCreate {
+                user_id: ctx.user_id(),
                 title: title.to_string(),
                 description: description.to_string(),
                 is_published: None,

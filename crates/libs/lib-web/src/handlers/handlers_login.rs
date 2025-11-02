@@ -55,7 +55,7 @@ pub async fn api_login_handler(
 	// -- Set web token.
 	let access_token = token::set_token_cookie(&cookies, &user.username, user.token_salt)?;
 
-	// Create the success body.
+	// -- Create success body.
 	 Ok(Json(LoginResponse {
         success: true,
         message: format!("Welcome back, {}!", username),
@@ -92,7 +92,7 @@ pub async fn api_logout_handler(
 		token::remove_token_cookie(&cookies)?;
 	}
 
-	// Create and return the success body.
+	// -- Create and return the success body.
 	Ok(Json(LogoutResponse {
 		success: true,
 		message: "Logged out successfully!".to_string()

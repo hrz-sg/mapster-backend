@@ -21,24 +21,22 @@ pub struct ModelManager {
 
 // Constructor
 impl ModelManager {
-    /// Constructor
+    
 	pub async fn new() -> Result<Self> {
-        println!("DEBUG: ModelManager::new called");
         let db_pool = new_db_pool()
             .await
             .map_err(|ex| {
-                println!("DEBUG: Failed to create db pool: {}", ex);
                 Error::CantCreateModelManagerProvider(ex.to_string())
             })?;
-        println!("DEBUG: Db pool created successfully");
-        let dbx = Dbx::new(db_pool, false)?; // Пока используйте false
-        println!("DEBUG: Dbx created successfully");
+
+        let dbx = Dbx::new(db_pool, false)?;
+
         Ok(ModelManager { dbx })
     }
 
     pub fn new_with_txn(&self) -> Result<ModelManager> {
-        println!("DEBUG: new_with_txn called");
         let dbx = Dbx::new(self.dbx.db().clone(), true)?;
+
         Ok(ModelManager { dbx })
     }
 

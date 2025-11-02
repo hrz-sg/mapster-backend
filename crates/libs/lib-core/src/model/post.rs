@@ -11,6 +11,7 @@ use modql::field::Fields;
 #[derive(Debug, Clone, Fields, FromRow, Serialize)]
 pub struct Post {
     pub id: i64,
+    pub user_id: i64,
     pub title: String,
     pub description: String,
     pub is_published: bool,
@@ -22,6 +23,7 @@ pub struct Post {
 
 #[derive(Fields, Deserialize)]
 pub struct PostForCreate {
+    pub user_id: i64,
     pub title: String,
     pub description: String,
     pub is_published: Option<bool>,
@@ -41,6 +43,7 @@ pub struct PostForUpdate {
 #[derive(FilterNodes, Deserialize, Default, Debug)]
 pub struct PostFilter {
     id: Option<OpValsInt64>,
+    user_id: Option<OpValsInt64>,
     title: Option<OpValsString>,
     is_published: Option<OpValsBool>,
     has_video: Option<OpValsBool>,
@@ -85,7 +88,6 @@ impl PostBmc {
     pub async fn delete(ctx: &Ctx, mm: &ModelManager, id: i64) -> Result<()> {
         base::delete::<Self>(ctx, mm, id).await
     }
-
 }
 
 // endregion: ---- PostBmc
@@ -118,6 +120,7 @@ mod tests {
 
         // -- Exec
         let post_c = PostForCreate {
+            user_id: ctx.user_id(),
             title: fx_title.to_string(),
             description: fx_description.to_string(),
             is_published: fx_is_published,
@@ -133,6 +136,7 @@ mod tests {
         let post = PostBmc::get(&ctx, &mm, id).await?;
         assert_eq!(post.title, fx_title);
         assert_eq!(post.description, fx_description);
+        assert_eq!(post.user_id, ctx.user_id());
 
         // -- Clean
         PostBmc::delete(&ctx, &mm, id).await?;

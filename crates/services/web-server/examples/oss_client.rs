@@ -1,30 +1,29 @@
 use lib_storage::oss::OssClient;
 use serde_json::json;
 use std::str;
-use tokio;
 
-pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
+type Result<T> = core::result::Result<T, Error>;
+type Error = Box<dyn std::error::Error>;
 
-async fn print_json(label: &str, data: serde_json::Value) {
+async fn print_json(label: &str, data: serde_json::Value) -> Result<()> {
     println!("\n=== {} ===", label);
-    println!("{}", serde_json::to_string_pretty(&data).unwrap());
+    println!("{}", serde_json::to_string_pretty(&data)?);
+    Ok(())
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenvy::dotenv().ok();
 
-    tracing_subscriber::fmt::init(); 
-
-    println!("\n=== Testing OSS Client ===");
+    println!("=== Testing OSS Client ===");
 
     let oss = OssClient::new();
     let filename = "tests/hello_test.txt";
     let content = b"Hello from Rust!";
 
-    // --- Upload ---
+    // --- Upload
     println!("\n--- Uploading File ---");
-    let url = oss.upload(filename, content).await?;
+    let (url, _) = oss.upload(filename, content).await?;
     print_json(
         "Upload Result",
         json!({
@@ -33,14 +32,14 @@ async fn main() -> Result<()> {
             "size_bytes": content.len(),
         }),
     )
-    .await;
+    .await?;
 
-    // --- Check Exists ---
+    // --- Check Exists
     println!("\n--- Checking Existence ---");
     let exists = oss.exists(filename).await?;
-    print_json("Exists", json!({ "exists": exists })).await;
+    print_json("Exists", json!({ "exists": exists })).await?;
 
-    // --- Download ---
+    // --- Download
     println!("\n--- Downloading File ---");
     let downloaded = oss.download(filename).await?;
     let text = str::from_utf8(&downloaded)?;
@@ -51,18 +50,17 @@ async fn main() -> Result<()> {
             "content_preview": text,
         }),
     )
-    .await;
+    .await?;
 
-    // --- Delete ---
+    // --- Delete
     println!("\n--- Deleting File ---");
     oss.delete(filename).await?;
-    print_json("Delete Result", json!({ "deleted": true })).await;
+    print_json("Delete Result", json!({ "deleted": true })).await?;
 
-    // --- Verify Delete ---
-    println!("\n--- Verify Deletion ---");
+    // --- Verify Delete
+    println!("\n--- Verifying Deletion ---");
     let exists_after = oss.exists(filename).await?;
-    print_json("Exists After Delete", json!({ "exists": exists_after })).await;
+    print_json("Exists After Delete", json!({ "exists": exists_after })).await?;
 
-    println!("\n✅ OSS Client test completed successfully!\n");
     Ok(())
 }

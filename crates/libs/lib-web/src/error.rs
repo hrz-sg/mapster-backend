@@ -3,6 +3,8 @@ use std::sync::Arc;
 use axum::{http::StatusCode, response::{IntoResponse, Response}};
 use lib_auth::token;
 use lib_core::model;
+use lib_storage::oss;
+use lib_utils::file;
 use serde::Serialize;
 use tracing::debug;
 use derive_more::From;
@@ -31,8 +33,16 @@ pub enum Error {
     #[from]
 	Token(token::Error),
     
-    // - Modules
+    // -- Modules
 	Model(model::Error),
+        
+    // -- OSS
+    #[from]
+	Oss(oss::Error),
+
+    // -- File
+    #[from]
+	File(file::Error),
 }
 
 // region: ---- Froms
@@ -109,7 +119,6 @@ impl Error {
 pub enum ClientError {
 	LOGIN_FAIL,
 	NO_AUTH,
-    // SERVICE_ERROR,
 	ENTITY_NOT_FOUND { entity: &'static str, id: i64 },
 
 	RPC_REQUEST_INVALID(String),

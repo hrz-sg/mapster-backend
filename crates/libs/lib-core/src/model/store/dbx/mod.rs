@@ -200,7 +200,10 @@ impl Dbx {
 		Ok(data)
 	}
 
-	pub async fn execute<'q, A>(&self, query: Query<'q, Postgres, A>) -> Result<u64>
+	pub async fn execute<'q, A>(
+		&self, 
+		query: Query<'q, Postgres, A>
+	) -> Result<u64>
 	where
 		A: IntoArguments<'q, Postgres> + 'q,
 	{

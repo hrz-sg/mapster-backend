@@ -10,3 +10,4 @@ doctest = false
 base64 = "0.22.1"
 time = { version = "0.3", features = ["formatting", "parsing"] }
 cans = "1.2"
+serde = { workspace = true}

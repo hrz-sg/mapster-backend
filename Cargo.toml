@@ -27,7 +27,7 @@ serde_json = "1.0.145"
 serde_with = "3.14.1"
 serde_valid = "1.0"
 # -- Axum
-axum = "0.8.6"
+axum = { version = "0.8.6", features = ["multipart", "macros", "json"] }
 tower-http = { version = "^0.6", features = ["fs"] }
 tower-cookies = "^0.11"
 # -- Data
@@ -53,6 +53,7 @@ time = { version = "0.3.44", features = ["formatting", "parsing", "serde"]}
 chrono = { version = "0.4", features = ["serde"] }
 reqwest = { version = "0.12", default-features = false, features = [
     "json", 
-    "rustls-tls",         
+    "rustls-tls",
+    "multipart"    
 ] }
 derive_more = {version = "2.0.1", features = ["from", "display"] }

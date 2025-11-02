@@ -8,6 +8,7 @@ edition = "2024"
 lib-utils = { path = "../../libs/lib-utils"}
 lib-auth = { path = "../../libs/lib-auth"}
 lib-core = { path = "../../libs/lib-core"}
+lib-storage = { path = "../../libs/lib-storage"}
 
 # -- Async
 tokio = { version = "1", features = ["full"] }
