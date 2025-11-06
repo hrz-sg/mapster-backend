@@ -1,6 +1,6 @@
-use std::path::Path;
 use crate::mime::get_mime_from_bytes;
 use serde::Serialize;
+use std::path::Path;
 
 const MAX_IMAGE_SIZE: usize = 10 * 1024 * 1024; // 10MB
 const MAX_VIDEO_SIZE: usize = 100 * 1024 * 1024; // 100MB
@@ -45,7 +45,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug, Serialize)]
 pub enum Error {
-	FileTooLarge,
+    FileTooLarge,
     UnsupportedMime,
     ValidationFail(String),
 }
@@ -53,12 +53,9 @@ pub enum Error {
 
 // region:    --- Error Boilerplate
 impl core::fmt::Display for Error {
-	fn fmt(
-		&self,
-		fmt: &mut core::fmt::Formatter,
-	) -> core::result::Result<(), core::fmt::Error> {
-		write!(fmt, "{self:?}")
-	}
+    fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::result::Result<(), core::fmt::Error> {
+        write!(fmt, "{self:?}")
+    }
 }
 
 impl std::error::Error for Error {}

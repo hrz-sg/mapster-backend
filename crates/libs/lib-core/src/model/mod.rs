@@ -2,15 +2,15 @@
 
 mod base;
 mod error;
-mod store;
 mod modql_utils;
+mod store;
 
 pub mod post;
 pub mod post_media;
 pub mod user;
 
-use crate::model::store::{dbx::Dbx, new_db_pool};
 pub use self::error::{Error, Result};
+use crate::model::store::{dbx::Dbx, new_db_pool};
 
 // endregion: ---- Modules
 
@@ -21,13 +21,10 @@ pub struct ModelManager {
 
 // Constructor
 impl ModelManager {
-    
-	pub async fn new() -> Result<Self> {
+    pub async fn new() -> Result<Self> {
         let db_pool = new_db_pool()
             .await
-            .map_err(|ex| {
-                Error::CantCreateModelManagerProvider(ex.to_string())
-            })?;
+            .map_err(|ex| Error::CantCreateModelManagerProvider(ex.to_string()))?;
 
         let dbx = Dbx::new(db_pool, false)?;
 
@@ -40,7 +37,7 @@ impl ModelManager {
         Ok(ModelManager { dbx })
     }
 
-	pub fn dbx(&self) -> &Dbx {
-		&self.dbx
-	}
+    pub fn dbx(&self) -> &Dbx {
+        &self.dbx
+    }
 }

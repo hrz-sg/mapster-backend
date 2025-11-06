@@ -1,13 +1,13 @@
+use axum::Json;
 use axum::extract::State;
 use axum::response::IntoResponse;
-use axum::Json;
 use lib_core::ctx::Ctx;
-use lib_core::model::user::UserBmc;
 use lib_core::model::ModelManager;
+use lib_core::model::user::UserBmc;
 use serde::Deserialize;
 use serde_json::json;
-use tracing::debug;
 use serde_valid::Validate;
+use tracing::debug;
 
 use crate::error::{Error, Result};
 
@@ -18,9 +18,9 @@ pub async fn api_verify_email_handler(
 ) -> Result<impl IntoResponse> {
     debug!("{:<12} - api_verify_email_handler", "HANDLER");
 
-    payload.validate().map_err(|errs| {
-        Error::Model(lib_core::model::Error::ValidationFail(errs.to_string()))
-    })?;
+    payload
+        .validate()
+        .map_err(|errs| Error::Model(lib_core::model::Error::ValidationFail(errs.to_string())))?;
 
     let root_ctx = Ctx::root_ctx();
 

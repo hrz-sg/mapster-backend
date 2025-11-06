@@ -1,25 +1,20 @@
+use crate::error::{Error, Result};
+use crate::utils::token::{AUTH_TOKEN, extract_token, set_token_cookie};
+use axum::body::Body;
 use axum::extract::{FromRequestParts, State};
-use axum::http::Request;            
-use axum::body::Body;             
-use axum::middleware::Next;
+use axum::http::Request;
 use axum::http::request::Parts;
+use axum::middleware::Next;
 use axum::response::Response;
-use tower_cookies::{Cookie, Cookies};
-use tracing::debug;
-use serde::Serialize;
 use lib_auth::token::validate_web_token;
 use lib_core::ctx::Ctx;
-use lib_core::model::user::{UserBmc, UserForAuth};
 use lib_core::model::ModelManager;
-use crate::utils::token::{extract_token, set_token_cookie, AUTH_TOKEN};
-use crate::error::{Error, Result};
+use lib_core::model::user::{UserBmc, UserForAuth};
+use serde::Serialize;
+use tower_cookies::{Cookie, Cookies};
+use tracing::debug;
 
-pub async fn mw_ctx_require(
-    ctx: Result<CtxW>,
-    req: Request<Body>,
-    next: Next,
-) -> Result<Response> {
-
+pub async fn mw_ctx_require(ctx: Result<CtxW>, req: Request<Body>, next: Next) -> Result<Response> {
     debug!("{:<12} - mw_ctx_require - {ctx:?}", "MIDDLEWARE");
 
     ctx?;
@@ -39,13 +34,11 @@ pub async fn mw_ctx_resolver(
 
     let ctx_ext_result = match token {
         Some(token) => ctx_resolve(mm, &cookies, token).await,
-        None => Err(CtxExtError::TokenMissing)
+        None => Err(CtxExtError::TokenMissing),
     };
 
     // if token not valid - delete cookie
-    if ctx_ext_result.is_err() 
-        && !matches!(ctx_ext_result, Err(CtxExtError::TokenNotInCookie))
-    {
+    if ctx_ext_result.is_err() && !matches!(ctx_ext_result, Err(CtxExtError::TokenNotInCookie)) {
         cookies.remove(Cookie::build(AUTH_TOKEN).into())
     }
 
@@ -56,23 +49,16 @@ pub async fn mw_ctx_resolver(
     next.run(req).await
 }
 
-async fn ctx_resolve(
-    mm: ModelManager, 
-    cookies: &Cookies,
-    token: String,
-) -> CtxExtResult {
-
+async fn ctx_resolve(mm: ModelManager, cookies: &Cookies, token: String) -> CtxExtResult {
     // -- Check token
-    let claims = validate_web_token(&token)
-        .map_err(|_| CtxExtError::FailValidate)?;
+    let claims = validate_web_token(&token).map_err(|_| CtxExtError::FailValidate)?;
 
     // -- Get UserForAuth
-    let user: UserForAuth = 
-        UserBmc::first_by_username(&Ctx::root_ctx(), &mm, &claims.sub)
-            .await
-            .map_err(|ex| CtxExtError::ModelAccessError(ex.to_string()))?
-            .ok_or(CtxExtError::UserNotFound)?;
-    
+    let user: UserForAuth = UserBmc::first_by_username(&Ctx::root_ctx(), &mm, &claims.sub)
+        .await
+        .map_err(|ex| CtxExtError::ModelAccessError(ex.to_string()))?
+        .ok_or(CtxExtError::UserNotFound)?;
+
     // -- Validate Salt
     if claims.salt != user.token_salt.to_string() {
         return Err(CtxExtError::FailValidate);
@@ -95,18 +81,18 @@ async fn ctx_resolve(
 pub struct CtxW(pub Ctx);
 
 impl<S: Send + Sync> FromRequestParts<S> for CtxW {
-	type Rejection = Error;
+    type Rejection = Error;
 
-	async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self> {
-		debug!("{:<12} - Ctx", "EXTRACTOR");
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self> {
+        debug!("{:<12} - Ctx", "EXTRACTOR");
 
-		parts
-			.extensions
-			.get::<CtxExtResult>()
-			.ok_or(Error::CtxExt(CtxExtError::CtxNotInRequestExt))?
-			.clone()
-			.map_err(Error::CtxExt)
-	}
+        parts
+            .extensions
+            .get::<CtxExtResult>()
+            .ok_or(Error::CtxExt(CtxExtError::CtxNotInRequestExt))?
+            .clone()
+            .map_err(Error::CtxExt)
+    }
 }
 
 // endregion: ---- Ctx Extractor

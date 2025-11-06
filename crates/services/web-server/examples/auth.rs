@@ -19,7 +19,7 @@ async fn print_response(response: reqwest::Response) -> Result<()> {
 #[tokio::main]
 async fn main() -> Result<()> {
     let client = create_client();
-    
+
     println!("=== Testing Auth Endpoints ===\n");
 
     // // Test registration
@@ -34,7 +34,7 @@ async fn main() -> Result<()> {
         }))
         .send()
         .await?;
-    
+
     print_response(response).await?;
 
     // Test login
@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
         }))
         .send()
         .await?;
-    
+
     print_response(response).await?;
 
     // Test logout
@@ -59,7 +59,7 @@ async fn main() -> Result<()> {
         }))
         .send()
         .await?;
-    
+
     print_response(response).await?;
 
     Ok(())

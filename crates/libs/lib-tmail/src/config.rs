@@ -1,13 +1,12 @@
-use lib_utils::envs::{get_env_parse, get_env};
+use lib_utils::envs::{get_env, get_env_parse};
 use std::sync::OnceLock;
 
 pub fn tmail_config() -> &'static EmailConfig {
     static INSTANCE: OnceLock<EmailConfig> = OnceLock::new();
 
     INSTANCE.get_or_init(|| {
-        EmailConfig::load_from_env().unwrap_or_else(|ex| {
-            panic!("FATAL - WHILE LOADING EMAIL CONF - Cause: {ex:?}")
-        })
+        EmailConfig::load_from_env()
+            .unwrap_or_else(|ex| panic!("FATAL - WHILE LOADING EMAIL CONF - Cause: {ex:?}"))
     })
 }
 
@@ -38,4 +37,3 @@ impl EmailConfig {
         })
     }
 }
-

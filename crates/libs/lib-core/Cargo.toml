@@ -32,6 +32,8 @@ chrono = { workspace = true}
 derive_more = { workspace = true }
 base64-url = "3.0.0"
 strum_macros = "0.27.2"
+futures = "0.3"
+async-trait = "0.1"
 
 [dev-dependencies]
 anyhow = "1"

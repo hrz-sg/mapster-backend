@@ -1,10 +1,10 @@
 use crate::ctx::Ctx;
 use crate::model::base::{self, DbBmc};
+use crate::model::{ModelManager, Result};
+use modql::field::Fields;
 use modql::filter::{FilterNodes, ListOptions, OpValsBool, OpValsInt64, OpValsString};
 use serde::{Deserialize, Serialize};
-use crate::model::{Result, ModelManager};
 use sqlx::FromRow;
-use modql::field::Fields;
 
 // region: ---- Post Types
 
@@ -37,7 +37,9 @@ pub struct PostForCreate {
 pub struct PostForUpdate {
     pub title: Option<String>,
     pub description: Option<String>,
-    pub is_published: Option<bool>
+    pub is_published: Option<bool>,
+    pub media_count: Option<i32>,
+    pub has_video: Option<bool>,
 }
 
 #[derive(FilterNodes, Deserialize, Default, Debug)]
@@ -60,11 +62,7 @@ impl DbBmc for PostBmc {
 }
 
 impl PostBmc {
-    pub async fn create(
-        ctx: &Ctx,
-        mm: &ModelManager,
-        post_c: PostForCreate,
-    ) -> Result<i64> {
+    pub async fn create(ctx: &Ctx, mm: &ModelManager, post_c: PostForCreate) -> Result<i64> {
         base::create::<Self, _>(ctx, mm, post_c).await
     }
 
@@ -73,15 +71,20 @@ impl PostBmc {
     }
 
     pub async fn list(
-        ctx: &Ctx, 
+        ctx: &Ctx,
         mm: &ModelManager,
         filters: Option<Vec<PostFilter>>,
-        list_options: Option<ListOptions>
+        list_options: Option<ListOptions>,
     ) -> Result<Vec<Post>> {
         base::list::<Self, _, _>(ctx, mm, filters, list_options).await
     }
 
-    pub async fn update(ctx: &Ctx, mm: &ModelManager, id: i64, post_u: PostForUpdate) -> Result<()> {
+    pub async fn update(
+        ctx: &Ctx,
+        mm: &ModelManager,
+        id: i64,
+        post_u: PostForUpdate,
+    ) -> Result<()> {
         base::update::<Self, _>(ctx, mm, id, post_u).await
     }
 
@@ -113,8 +116,12 @@ mod tests {
         let fx_title: &'static str = "test_create_ok title";
         let fx_description: &'static str = "test_create_ok description";
         let fx_is_published: Option<bool> = Some(true);
-        let fx_cover_media_url: Option<String> = Some(String::from("https://plus.unsplash.com/premium_photo-1759484628323-142ec8547fb9?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=774"));
-        let fx_thumbnail_url: Option<String> = Some(String::from("https://plus.unsplash.com/premium_photo-1759484628323-142ec8547fb9?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=774"));
+        let fx_cover_media_url: Option<String> = Some(String::from(
+            "https://plus.unsplash.com/premium_photo-1759484628323-142ec8547fb9?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=774",
+        ));
+        let fx_thumbnail_url: Option<String> = Some(String::from(
+            "https://plus.unsplash.com/premium_photo-1759484628323-142ec8547fb9?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=774",
+        ));
         let fx_media_count: Option<i32> = Some(1);
         let fx_has_video: Option<bool> = Some(false);
 
@@ -159,9 +166,9 @@ mod tests {
         assert!(
             matches!(
                 res,
-                Err(Error::EntityNotFound { 
+                Err(Error::EntityNotFound {
                     entity: "post",
-                    id: 100 
+                    id: 100
                 })
             ),
             "EntityNotFound not matching"
@@ -173,20 +180,20 @@ mod tests {
     #[serial]
     #[tokio::test]
     async fn test_list_all_ok() -> Result<()> {
-       let mm = _dev_utils::init_test().await;
-       let ctx = Ctx::root_ctx();
-       let fx_titles = &["test_list_all_ok-post 01", "test_list_all_ok-post 02"];
-       let fx_descriptions = &["test_list_all_ok-post 01", "test_list_all_ok-post 02"];
-       _dev_utils::seed_posts(&ctx, &mm, fx_titles, fx_descriptions).await?;
+        let mm = _dev_utils::init_test().await;
+        let ctx = Ctx::root_ctx();
+        let fx_titles = &["test_list_all_ok-post 01", "test_list_all_ok-post 02"];
+        let fx_descriptions = &["test_list_all_ok-post 01", "test_list_all_ok-post 02"];
+        _dev_utils::seed_posts(&ctx, &mm, fx_titles, fx_descriptions).await?;
 
-       // -- Exec
-       let posts = PostBmc::list(&ctx, &mm, None, None).await?;
+        // -- Exec
+        let posts = PostBmc::list(&ctx, &mm, None, None).await?;
 
-       // -- Check
-       let posts: Vec<Post> = posts
-        .into_iter()
-        .filter(|t| t.title.starts_with("test_list_all_ok-post"))
-        .collect();
+        // -- Check
+        let posts: Vec<Post> = posts
+            .into_iter()
+            .filter(|t| t.title.starts_with("test_list_all_ok-post"))
+            .collect();
         assert_eq!(posts.len(), 2, "number of seeded posts.");
 
         // -- Clean
@@ -194,32 +201,32 @@ mod tests {
             PostBmc::delete(&ctx, &mm, post.id).await?;
         }
 
-       Ok(())
+        Ok(())
     }
 
     #[serial]
     #[tokio::test]
     async fn test_list_by_filter_ok() -> Result<()> {
-       let mm = _dev_utils::init_test().await;
-       let ctx = Ctx::root_ctx();
-       let fx_titles = &[
-        "test_list_by_filter_ok-post 01.a", 
-        "test_list_by_filter_ok-post 01.b", 
-        "test_list_by_filter_ok-post 02.a", 
-        "test_list_by_filter_ok-post 02.b", 
-        "test_list_by_filter_ok-post 03"
+        let mm = _dev_utils::init_test().await;
+        let ctx = Ctx::root_ctx();
+        let fx_titles = &[
+            "test_list_by_filter_ok-post 01.a",
+            "test_list_by_filter_ok-post 01.b",
+            "test_list_by_filter_ok-post 02.a",
+            "test_list_by_filter_ok-post 02.b",
+            "test_list_by_filter_ok-post 03",
         ];
-       let fx_descriptions = &[
-        "test_list_by_filter_ok-post 01.a", 
-        "test_list_by_filter_ok-post 01.b", 
-        "test_list_by_filter_ok-post 02.a", 
-        "test_list_by_filter_ok-post 02.b", 
-        "test_list_by_filter_ok-post 03"
+        let fx_descriptions = &[
+            "test_list_by_filter_ok-post 01.a",
+            "test_list_by_filter_ok-post 01.b",
+            "test_list_by_filter_ok-post 02.a",
+            "test_list_by_filter_ok-post 02.b",
+            "test_list_by_filter_ok-post 03",
         ];
-       _dev_utils::seed_posts(&ctx, &mm, fx_titles, fx_descriptions).await?;
+        _dev_utils::seed_posts(&ctx, &mm, fx_titles, fx_descriptions).await?;
 
-       // -- Exec
-       let filters: Vec<PostFilter> = serde_json::from_value(json!([
+        // -- Exec
+        let filters: Vec<PostFilter> = serde_json::from_value(json!([
         {
         "title": {
             "$endsWith": ".a",
@@ -230,16 +237,16 @@ mod tests {
             "title": {"$contains": "03"}
         }
         ]))?;
-       let list_options = serde_json::from_value(json!({
-        "order_bys": "!id"
-       }))?;
-       let posts = PostBmc::list(&ctx, &mm, Some(filters), Some(list_options)).await?;
+        let list_options = serde_json::from_value(json!({
+         "order_bys": "!id"
+        }))?;
+        let posts = PostBmc::list(&ctx, &mm, Some(filters), Some(list_options)).await?;
 
-       // -- Check
-       assert_eq!(posts.len(), 3);
-       assert!(posts[0].title.ends_with("03"));
-       assert!(posts[1].title.ends_with("02.a"));
-       assert!(posts[2].title.ends_with("01.a"));
+        // -- Check
+        assert_eq!(posts.len(), 3);
+        assert!(posts[0].title.ends_with("03"));
+        assert!(posts[1].title.ends_with("02.a"));
+        assert!(posts[2].title.ends_with("01.a"));
 
         // -- Clean
         let posts = PostBmc::list(
@@ -256,7 +263,7 @@ mod tests {
             PostBmc::delete(&ctx, &mm, post.id).await?;
         }
 
-       Ok(())
+        Ok(())
     }
 
     #[serial]
@@ -275,11 +282,11 @@ mod tests {
 
         // -- Exec
         PostBmc::update(
-            &ctx, 
-            &mm, 
-            fx_post.id, 
-            PostForUpdate { 
-                title: Some(fx_title_new.to_string()), 
+            &ctx,
+            &mm,
+            fx_post.id,
+            PostForUpdate {
+                title: Some(fx_title_new.to_string()),
                 description: Some(fx_description_new.to_string()),
                 ..Default::default()
             },
@@ -290,7 +297,7 @@ mod tests {
         let post = PostBmc::get(&ctx, &mm, fx_post.id).await?;
         assert_eq!(post.title, fx_title_new);
         assert_eq!(post.description, fx_description_new);
-        
+
         Ok(())
     }
 
@@ -309,9 +316,9 @@ mod tests {
         assert!(
             matches!(
                 res,
-                Err(Error::EntityNotFound { 
+                Err(Error::EntityNotFound {
                     entity: "post",
-                    id: 100 
+                    id: 100
                 })
             ),
             "EntityNotFound not matching"

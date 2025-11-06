@@ -4,7 +4,13 @@ mod dev_db;
 use tokio::sync::OnceCell;
 use tracing::info;
 
-use crate::{ctx::Ctx, model::{self, post::{Post, PostBmc, PostForCreate}, ModelManager}};
+use crate::{
+    ctx::Ctx,
+    model::{
+        self, ModelManager,
+        post::{Post, PostBmc, PostForCreate},
+    },
+};
 
 // endregion: ---- Modules
 
@@ -24,7 +30,7 @@ pub async fn init_dev() {
 /// Init test environment
 pub async fn init_test() -> ModelManager {
     static INIT: OnceCell<ModelManager> = OnceCell::const_new();
-    
+
     let mm = INIT
         .get_or_init(|| async {
             init_dev().await;
@@ -45,8 +51,8 @@ pub async fn seed_posts(
 
     for (title, description) in titles.iter().zip(descriptions.iter()) {
         let id = PostBmc::create(
-            ctx, 
-            mm, 
+            ctx,
+            mm,
             PostForCreate {
                 user_id: ctx.user_id(),
                 title: title.to_string(),
@@ -56,13 +62,13 @@ pub async fn seed_posts(
                 thumbnail_url: None,
                 media_count: None,
                 has_video: None,
-            }
+            },
         )
         .await?;
 
         let post = PostBmc::get(ctx, mm, id).await?;
         posts.push(post);
     }
-    
+
     Ok(posts)
 }

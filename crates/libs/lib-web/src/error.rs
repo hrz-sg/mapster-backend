@@ -1,14 +1,15 @@
-use std::sync::Arc;
-
-use axum::{http::StatusCode, response::{IntoResponse, Response}};
+use crate::middleware;
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+};
+use derive_more::From;
 use lib_auth::token;
 use lib_core::model;
 use lib_storage::oss;
 use lib_utils::file;
 use serde::Serialize;
 use tracing::debug;
-use derive_more::From;
-use crate::middleware;
 
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -17,32 +18,39 @@ pub type Result<T> = core::result::Result<T, Error>;
 pub enum Error {
     // -- Login
     LoginFailUsernameNotFound,
-    LoginFailUserHasNoPwd { user_id: i64 },
-    LoginFailPwdNotMatching { user_id: i64 },
-    
+    LoginFailUserHasNoPwd {
+        user_id: i64,
+    },
+    LoginFailPwdNotMatching {
+        user_id: i64,
+    },
+
+    // -- Entity
+    EntityNotFound,
+
     // -- CtxExtError
     CtxExt(middleware::mw_auth::CtxExtError),
 
     // -- Extractors
-	ReqStampNotInReqExt,
+    ReqStampNotInReqExt,
 
     // -- Config
     ConfigMissingEnv(&'static str),
     ConfigWrongFormat(&'static str),
 
     #[from]
-	Token(token::Error),
-    
+    Token(token::Error),
+
     // -- Modules
-	Model(model::Error),
-        
+    Model(model::Error),
+
     // -- OSS
     #[from]
-	Oss(oss::Error),
+    Oss(oss::Error),
 
     // -- File
     #[from]
-	File(file::Error),
+    File(file::Error),
 }
 
 // region: ---- Froms
@@ -55,29 +63,27 @@ impl From<model::Error> for Error {
 
 // region:    --- Error Boilerplate
 impl core::fmt::Display for Error {
-	fn fmt(
-		&self,
-		fmt: &mut core::fmt::Formatter,
-	) -> core::result::Result<(), core::fmt::Error> {
-		write!(fmt, "{self:?}")
-	}
+    fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::result::Result<(), core::fmt::Error> {
+        write!(fmt, "{self:?}")
+    }
 }
 
 impl std::error::Error for Error {}
 // endregion: --- Error Boilerplate
 
 impl IntoResponse for Error {
-	fn into_response(self) -> Response {
-		debug!("{:<12} - model::Error {self:?}", "INTO_RES");
+    fn into_response(self) -> Response {
+        debug!("{:<12} - lib_web::Error {self:?}", "INTO_RES");
 
-		// Create a placeholder Axum reponse.
-		let mut response = StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        let (status, client_error) = self.client_status_and_error();
 
-		// Insert the Error into the reponse.
-		response.extensions_mut().insert(Arc::new(self));
+        let body = axum::Json(serde_json::json!({
+            "success": false,
+            "error": client_error
+        }));
 
-		response
-	}
+        (status, body).into_response()
+    }
 }
 
 // region: ---- Error Boilerplate
@@ -98,14 +104,20 @@ impl Error {
             CtxExt(_) => (StatusCode::FORBIDDEN, ClientError::LOGIN_FAIL),
 
             // -- Validation
-            Self::Model(model::Error::ValidationFail(_)) => {
-                (StatusCode::BAD_REQUEST, ClientError::RPC_PARAMS_INVALID("Validation failed".to_string()))
-            }
+            Self::Model(model::Error::ValidationFail(_)) => (
+                StatusCode::BAD_REQUEST,
+                ClientError::RPC_PARAMS_INVALID("Validation failed".to_string()),
+            ),
+
+            Self::Model(model::Error::EntityNotFound { entity, id }) => (
+                StatusCode::NOT_FOUND,
+                ClientError::ENTITY_NOT_FOUND { entity, id: *id },
+            ),
 
             // -- Fallback
             _ => (
-                StatusCode::INTERNAL_SERVER_ERROR, 
-                ClientError::SERVICE_ERROR
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ClientError::SERVICE_ERROR,
             ),
         }
     }
@@ -117,14 +129,14 @@ impl Error {
 #[serde(tag = "message", content = "detail")]
 #[allow(non_camel_case_types)]
 pub enum ClientError {
-	LOGIN_FAIL,
-	NO_AUTH,
-	ENTITY_NOT_FOUND { entity: &'static str, id: i64 },
+    LOGIN_FAIL,
+    NO_AUTH,
+    ENTITY_NOT_FOUND { entity: &'static str, id: i64 },
 
-	RPC_REQUEST_INVALID(String),
-	RPC_REQUEST_METHOD_UNKNOWN(String),
-	RPC_PARAMS_INVALID(String),
+    RPC_REQUEST_INVALID(String),
+    RPC_REQUEST_METHOD_UNKNOWN(String),
+    RPC_PARAMS_INVALID(String),
 
-	SERVICE_ERROR,
+    SERVICE_ERROR,
 }
 // endregion: ---- ClientError

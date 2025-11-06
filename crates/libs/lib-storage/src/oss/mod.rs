@@ -1,12 +1,12 @@
-use std::sync::Arc;
+use crate::config::oss_config;
 use ali_oss_rs::Client;
 use ali_oss_rs::acl::ObjectAclOperations;
-use ali_oss_rs::object::{ObjectOperations};
+use ali_oss_rs::object::ObjectOperations;
 use ali_oss_rs::object_common::GetObjectOptions;
 use ali_oss_rs::object_common::{ObjectAcl, PutObjectOptions};
 use lib_utils::file::validate_file;
+use std::sync::Arc;
 use tracing::{debug, info};
-use crate::config::oss_config;
 
 mod error;
 pub use self::error::{Error, Result};
@@ -16,6 +16,12 @@ pub struct OssClient {
     client: Arc<Client>,
     bucket_name: String,
     public_base: String,
+}
+
+impl Default for OssClient {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl OssClient {
@@ -40,7 +46,7 @@ impl OssClient {
     pub async fn upload(&self, filename: &str, data: &[u8]) -> Result<(String, String)> {
         info!("{:<12} - Uploading file: {}", "OSS", filename);
         debug!("{:<12} - File size: {} bytes", "OSS", data.len());
-        
+
         let mime = validate_file(filename, data)?;
 
         let put_options = PutObjectOptions {
@@ -85,7 +91,7 @@ impl OssClient {
             .delete_object(&self.bucket_name, filename, None)
             .await
             .map_err(|e| Error::UploadError(format!("delete_object: {}", e)))?;
-        
+
         info!("{:<12} - Deleted file: {}", "OSS", filename);
 
         Ok(())
@@ -124,7 +130,11 @@ impl OssClient {
     pub async fn exists(&self, filename: &str) -> Result<bool> {
         info!("{:<12} - Checking if file exists: {}", "OSS", filename);
 
-        match self.client.head_object(&self.bucket_name, filename, None).await {
+        match self
+            .client
+            .head_object(&self.bucket_name, filename, None)
+            .await
+        {
             Ok(_) => Ok(true),
             Err(err) => {
                 let msg = err.to_string();
@@ -138,7 +148,7 @@ impl OssClient {
     }
 
     /// --- Create URL for object
-    pub fn public_url(&self, filename: &str) -> String {
+    fn public_url(&self, filename: &str) -> String {
         info!("{:<12} - Creating public URL: {}", "OSS", filename);
 
         format!(

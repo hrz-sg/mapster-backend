@@ -1,10 +1,12 @@
 use crate::ctx::Ctx;
 use crate::model::base::{self, DbBmc};
+use crate::model::{ModelManager, Result};
+use modql::field::{Fields, HasSeaFields};
 use modql::filter::{FilterNodes, ListOptions, OpValsInt64, OpValsString};
+use sea_query::{Expr, Iden, PostgresQueryBuilder, Query};
+use sea_query_binder::SqlxBinder;
 use serde::{Deserialize, Serialize};
-use crate::model::{Result, ModelManager};
 use sqlx::FromRow;
-use modql::field::Fields;
 
 // region: --- PostMedia Types
 #[derive(Debug, Clone, Fields, FromRow, Serialize, Deserialize)]
@@ -12,13 +14,13 @@ pub struct PostMedia {
     pub id: i64,
     pub post_id: i64,
     pub media_url: String,
-    pub media_type: String,  // "image" or "video"
+    pub media_type: String, // "image" or "video"
     pub mime_type: String,
     pub width: Option<i32>,
     pub height: Option<i32>,
     pub file_size: Option<i64>,
-    pub duration: Option<i32>,  // for videos in seconds
-    pub sort_order: i32,  // order in carousel
+    pub duration: Option<i32>, // for videos in seconds
+    pub sort_order: i32,       // order in carousel
     pub alt_text: Option<String>,
 }
 
@@ -58,6 +60,11 @@ pub struct PostMediaFilter {
     sort_order: Option<OpValsInt64>,
 }
 
+#[derive(Iden)]
+enum PostMediaIden {
+    PostId,
+}
+
 // endregion: --- PostMedia Types
 
 // region: --- PostMediaBmc
@@ -81,15 +88,41 @@ impl PostMediaBmc {
     }
 
     pub async fn list(
-        ctx: &Ctx, 
+        ctx: &Ctx,
         mm: &ModelManager,
         filters: Option<Vec<PostMediaFilter>>,
-        list_options: Option<ListOptions>
+        list_options: Option<ListOptions>,
     ) -> Result<Vec<PostMedia>> {
         base::list::<Self, _, _>(ctx, mm, filters, list_options).await
     }
 
-    pub async fn update(ctx: &Ctx, mm: &ModelManager, id: i64, post_media_u: PostMediaForUpdate) -> Result<()> {
+    pub async fn list_by_post(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        post_id: i64,
+    ) -> Result<Vec<PostMedia>> {
+
+        // -- Build query
+        let mut query = Query::select();
+        query
+            .from(Self::table_ref())
+            .columns(PostMedia::sea_column_refs())
+            .and_where(Expr::col(PostMediaIden::PostId).eq(post_id));
+
+        // -- Execute query
+        let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
+        let sqlx_query = sqlx::query_as_with::<_, PostMedia, _>(&sql, values);
+        let medias = mm.dbx().fetch_all(sqlx_query).await?;
+
+        Ok(medias)
+    }
+
+    pub async fn update(
+        ctx: &Ctx,
+        mm: &ModelManager,
+        id: i64,
+        post_media_u: PostMediaForUpdate,
+    ) -> Result<()> {
         base::update::<Self, _>(ctx, mm, id, post_media_u).await
     }
 
@@ -97,4 +130,18 @@ impl PostMediaBmc {
         base::delete::<Self>(ctx, mm, id).await
     }
 
+    pub async fn delete_by_post(_ctx: &Ctx, mm: &ModelManager, post_id: i64) -> Result<()> {
+        // -- Build query
+        let mut query = Query::delete();
+        query
+            .from_table(Self::table_ref())
+            .and_where(Expr::col(PostMediaIden::PostId).eq(post_id));
+
+        // -- Execute query
+        let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
+        let sqlx_query = sqlx::query_with(&sql, values);
+        mm.dbx().execute(sqlx_query).await?;
+
+        Ok(())
+    }
 }

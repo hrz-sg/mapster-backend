@@ -1,8 +1,18 @@
-use std::{fs, path::{Path, PathBuf}, time::Duration};
-use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
+use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 use tracing::info;
 
-use crate::{ctx::Ctx, model::{user::{User, UserBmc}, ModelManager}};
+use crate::{
+    ctx::Ctx,
+    model::{
+        ModelManager,
+        user::{User, UserBmc},
+    },
+};
 
 type Db = Pool<Postgres>;
 
@@ -20,17 +30,17 @@ pub async fn init_dev_db() -> Result<(), Box<dyn std::error::Error>> {
     info!("{:<12} - init_dev_db()", "FOR-DEV-ONLY");
 
     // -- Get the sql_dir
-	// Note: This is because cargo test and cargo run won't give the same
-	//       current_dir given the worspace layout.
-	let current_dir = std::env::current_dir().unwrap();
-	let v: Vec<_> = current_dir.components().collect();
-	let path_comp = v.get(v.len().wrapping_sub(3));
-	let base_dir = if Some(true) == path_comp.map(|c| c.as_os_str() == "crates") {
-		v[..v.len() - 3].iter().collect::<PathBuf>()
-	} else {
-		current_dir.clone()
-	};
-	let sql_dir = base_dir.join(SQL_DIR);
+    // Note: This is because cargo test and cargo run won't give the same
+    //       current_dir given the worspace layout.
+    let current_dir = std::env::current_dir().unwrap();
+    let v: Vec<_> = current_dir.components().collect();
+    let path_comp = v.get(v.len().wrapping_sub(3));
+    let base_dir = if Some(true) == path_comp.map(|c| c.as_os_str() == "crates") {
+        v[..v.len() - 3].iter().collect::<PathBuf>()
+    } else {
+        current_dir.clone()
+    };
+    let sql_dir = base_dir.join(SQL_DIR);
 
     // -- Create the app_db/app_user with the postgres user
     {
@@ -51,11 +61,9 @@ pub async fn init_dev_db() -> Result<(), Box<dyn std::error::Error>> {
     for path in paths {
         let path_str = path.to_string_lossy();
 
-		if path_str.ends_with(".sql")
-			&& !path_str.ends_with(SQL_RECREATE_DB_FILE_NAME)
-		{
-			pexec(&app_db, &path).await?;
-		}
+        if path_str.ends_with(".sql") && !path_str.ends_with(SQL_RECREATE_DB_FILE_NAME) {
+            pexec(&app_db, &path).await?;
+        }
     }
 
     // -- Init model layer
@@ -79,17 +87,15 @@ async fn pexec(db: &Db, file: &Path) -> Result<(), sqlx::Error> {
     let content = fs::read_to_string(file)?;
 
     // FIXME: Make the split more sql proof
-    let sqls: Vec<&str> = content
-        .split(';')
-        .collect();
+    let sqls: Vec<&str> = content.split(';').collect();
 
     for sql in sqls {
-		sqlx::query(sql).execute(db).await.map_err(|e| {
-			println!("pexec error while running:\n{sql}");
-			println!("cause:\n{e}");
-			e
-		})?;
-	}
+        sqlx::query(sql).execute(db).await.map_err(|e| {
+            println!("pexec error while running:\n{sql}");
+            println!("cause:\n{e}");
+            e
+        })?;
+    }
 
     Ok(())
 }

@@ -1,0 +1,110 @@
+use crate::ctx::Ctx;
+use crate::model::{ModelManager, Result};
+use crate::model::post_media::{PostMedia, PostMediaBmc, PostMediaForCreate, PostMediaForUpdate};
+use crate::service::media_storage::{Storage, MediaStorageService};
+
+pub struct PostMediaService<S: Storage> {
+    storage: S,
+}
+
+impl Default for PostMediaService<MediaStorageService> {
+    fn default() -> Self {
+        Self::new(MediaStorageService::new())
+    }
+}
+
+impl<S: Storage> PostMediaService<S> {
+    pub fn new(storage: S) -> Self {
+        Self { storage }
+    }
+
+    pub async fn upload_and_create(
+        &self,
+        ctx: &Ctx,
+        mm: &ModelManager,
+        post_id: i64,
+        filename: &str,
+        data: &[u8],
+        sort_order: i32,
+    ) -> Result<i64> {
+        let (url, mime) = self.storage.upload(filename, data).await?;
+        let media_type = if mime.starts_with("video/") { "video" } else { "image" };
+
+        PostMediaBmc::create(
+            ctx,
+            mm,
+            PostMediaForCreate {
+                post_id,
+                media_url: url,
+                media_type: media_type.into(),
+                mime_type: mime,
+                width: None,
+                height: None,
+                file_size: Some(data.len() as i64),
+                duration: None,
+                sort_order,
+                alt_text: None,
+            },
+        )
+        .await
+    }
+
+    pub async fn replace_media(
+        &self,
+        ctx: &Ctx,
+        mm: &ModelManager,
+        media_id: i64,
+        post_id: i64,
+        filename: &str,
+        data: &[u8],
+    ) -> Result<()> {
+        let old = PostMediaBmc::get(ctx, mm, media_id).await?;
+        if old.post_id != post_id {
+            tracing::warn!("skip updating media id={} (belongs to another post)", media_id);
+            return Ok(());
+        }
+
+        // -- Delete old file
+        self.storage.delete_by_url(&old.media_url).await?;
+
+        // -- Update new file
+        let (url, mime) = self.storage.upload(filename, data).await?;
+        let media_type = if mime.starts_with("video/") { "video" } else { "image" };
+
+        PostMediaBmc::update(
+            ctx,
+            mm,
+            media_id,
+            PostMediaForUpdate {
+                media_url: Some(url),
+                mime_type: Some(mime),
+                media_type: Some(media_type.into()),
+                file_size: Some(data.len() as i64),
+                ..Default::default()
+            },
+        )
+        .await
+    }
+
+    pub async fn delete_many(&self, ctx: &Ctx, mm: &ModelManager, ids: &[i64]) -> Result<()> {
+        for &id in ids {
+            self.delete_media(ctx, mm, id).await?;
+        }
+        Ok(())
+    }
+
+    pub async fn delete_media(&self, ctx: &Ctx, mm: &ModelManager, media_id: i64) -> Result<()> {
+        let media = PostMediaBmc::get(ctx, mm, media_id).await?;
+        self.storage.delete_by_url(&media.media_url).await?;
+        PostMediaBmc::delete(ctx, mm, media_id).await
+    }
+
+    pub async fn list_by_post(&self, ctx: &Ctx, mm: &ModelManager, post_id: i64) -> Result<Vec<PostMedia>> {
+        PostMediaBmc::list_by_post(ctx, mm, post_id).await
+    }
+
+    pub async fn next_sort(ctx: &Ctx, mm: &ModelManager, post_id: i64) -> Result<i32> {
+        let medias = PostMediaBmc::list_by_post(ctx, mm, post_id).await?;
+        Ok(medias.iter().map(|m| m.sort_order).max().unwrap_or(-1) + 1)
+    }
+}

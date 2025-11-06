@@ -1,6 +1,6 @@
 use std::sync::OnceLock;
 
-use argon2::{password_hash::SaltString, Algorithm, Argon2, Params, Version};
+use argon2::{Algorithm, Argon2, Params, Version, password_hash::SaltString};
 use argon2::{PasswordHash, PasswordHasher, PasswordVerifier};
 
 use crate::{config::auth_config, pwd::scheme::Scheme};
@@ -13,8 +13,7 @@ impl Scheme for Scheme02 {
     fn hash(&self, to_hash: &crate::pwd::ContentToHash) -> Result<String> {
         let argon2 = get_argon2();
 
-        let salt_b64 = SaltString::encode_b64(to_hash.salt.as_bytes())
-            .map_err(|_| Error::Salt)?;
+        let salt_b64 = SaltString::encode_b64(to_hash.salt.as_bytes()).map_err(|_| Error::Salt)?;
 
         let pwd = argon2
             .hash_password(to_hash.content.as_bytes(), &salt_b64)
@@ -24,11 +23,7 @@ impl Scheme for Scheme02 {
         Ok(pwd)
     }
 
-    fn validate(
-        &self, 
-        to_hash: &crate::pwd::ContentToHash, 
-        pwd_ref: &str
-    ) -> Result<()> {
+    fn validate(&self, to_hash: &crate::pwd::ContentToHash, pwd_ref: &str) -> Result<()> {
         let argon2 = get_argon2();
 
         let parsed_hash_ref = PasswordHash::new(pwd_ref).map_err(|_| Error::Hash)?;
@@ -47,7 +42,7 @@ fn get_argon2() -> &'static Argon2<'static> {
         Argon2::new_with_secret(
             key,
             Algorithm::Argon2id, // Same as Argon2::default()
-            Version::V0x13, // Same as Argon2::default()
+            Version::V0x13,      // Same as Argon2::default()
             Params::default(),
         )
         .unwrap() // TODO - needs to fail early
@@ -66,20 +61,20 @@ mod tests {
     #[test]
     fn test_scheme_02_hash_into_b64u_ok() -> Result<()> {
         // -- Setup & Fixtures
-		let fx_to_hash = ContentToHash {
-			content: "hello world".to_string(),
-			salt: Uuid::parse_str("f05e8961-d6ad-4086-9e78-a6de065e5453")?,
-		};
-		let fx_res = "$argon2id$v=19$m=19456,t=2,p=1$8F6JYdatQIaeeKbeBl5UUw$TaRnmmbDdQ1aTzk2qQ2yQzPQoZfnKqhrfuTH/TRP5V4";
+        let fx_to_hash = ContentToHash {
+            content: "hello world".to_string(),
+            salt: Uuid::parse_str("f05e8961-d6ad-4086-9e78-a6de065e5453")?,
+        };
+        let fx_res = "$argon2id$v=19$m=19456,t=2,p=1$8F6JYdatQIaeeKbeBl5UUw$TaRnmmbDdQ1aTzk2qQ2yQzPQoZfnKqhrfuTH/TRP5V4";
 
-		// -- Exec
-		let scheme = Scheme02;
-		let res = scheme.hash(&fx_to_hash)?;
+        // -- Exec
+        let scheme = Scheme02;
+        let res = scheme.hash(&fx_to_hash)?;
 
-		// -- Check
-		assert_eq!(res, fx_res);
+        // -- Check
+        assert_eq!(res, fx_res);
 
-		Ok(())
+        Ok(())
     }
 }
 // endregion: ---- Tests

@@ -2,44 +2,43 @@ use lib_utils::envs::{get_env_b64u_as_u8s, get_env_parse};
 use std::sync::OnceLock;
 
 pub fn auth_config() -> &'static AuthConfig {
-	static INSTANCE: OnceLock<AuthConfig> = OnceLock::new();
+    static INSTANCE: OnceLock<AuthConfig> = OnceLock::new();
 
-	INSTANCE.get_or_init(|| {
-		AuthConfig::load_from_env().unwrap_or_else(|ex| {
-			panic!("FATAL - WHILE LOADING CONF - Cause: {ex:?}")
-		})
-	})
+    INSTANCE.get_or_init(|| {
+        AuthConfig::load_from_env()
+            .unwrap_or_else(|ex| panic!("FATAL - WHILE LOADING CONF - Cause: {ex:?}"))
+    })
 }
 
 #[allow(non_snake_case)]
 pub struct AuthConfig {
-	// -- Crypt
-	pub PWD_KEY: Vec<u8>,
+    // -- Crypt
+    pub PWD_KEY: Vec<u8>,
 
-	// -- Token
-	pub TOKEN_KEY: Vec<u8>,
-	pub ACCESS_TOKEN_TTL: i64,
+    // -- Token
+    pub TOKEN_KEY: Vec<u8>,
+    pub ACCESS_TOKEN_TTL: i64,
     pub REFRESH_TOKEN_TTL: i64,
 
-	// -- Verification & Reset
+    // -- Verification & Reset
     pub RESET_TOKEN_TTL_MIN: i64,
     pub VERIFY_TOKEN_TTL_MIN: i64,
 }
 
 impl AuthConfig {
-	fn load_from_env() -> lib_utils::envs::Result<AuthConfig> {
-		Ok(AuthConfig {
-			// -- Crypt
-			PWD_KEY: get_env_b64u_as_u8s("SERVICE_PWD_KEY")?,
+    fn load_from_env() -> lib_utils::envs::Result<AuthConfig> {
+        Ok(AuthConfig {
+            // -- Crypt
+            PWD_KEY: get_env_b64u_as_u8s("SERVICE_PWD_KEY")?,
 
-			// -- Token
+            // -- Token
             TOKEN_KEY: get_env_b64u_as_u8s("SERVICE_TOKEN_KEY")?,
             ACCESS_TOKEN_TTL: get_env_parse("ACCESS_TOKEN_TTL")?,
             REFRESH_TOKEN_TTL: get_env_parse("REFRESH_TOKEN_TTL")?,
 
-			// -- Verification & Reset
+            // -- Verification & Reset
             RESET_TOKEN_TTL_MIN: get_env_parse("RESET_TOKEN_TTL_MIN")?,
             VERIFY_TOKEN_TTL_MIN: get_env_parse("VERIFY_TOKEN_TTL_MIN")?,
-		})
-	}
+        })
+    }
 }

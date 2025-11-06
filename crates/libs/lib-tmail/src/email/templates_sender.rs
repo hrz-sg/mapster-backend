@@ -1,12 +1,11 @@
 // region: ---- Modules
-use lettre::{
-    message::{header, SinglePart},
-    transport::smtp::authentication::Credentials,
-    Message, SmtpTransport,
-    Transport
-};
-use crate::tmail_config;
 use super::error::{Error, Result};
+use crate::tmail_config;
+use lettre::{
+    Message, SmtpTransport, Transport,
+    message::{SinglePart, header},
+    transport::smtp::authentication::Credentials,
+};
 // endregion: ---- Modules
 
 // region: ---- Send Email
@@ -14,10 +13,10 @@ pub(in crate::email) async fn send_email_with_template(
     to_email: &str,
     subject: &str,
     template: &str,
-    placeholders: &[(String, String)]
+    placeholders: &[(String, String)],
 ) -> Result<()> {
     let config = tmail_config();
-    
+
     let smtp_username = &config.SMTP_USERNAME;
     let smtp_pwd = &config.SMTP_PWD;
     let smtp_server = &config.SMTP_SERVER;
@@ -38,15 +37,15 @@ pub(in crate::email) async fn send_email_with_template(
         .map_err(|_| Error::TemplateProcessing)?;
 
     let creds = Credentials::new(smtp_username.clone(), smtp_pwd.clone());
-    let mailer = SmtpTransport::starttls_relay(&smtp_server)
-            .map_err(|_| Error::SmtpConfig)?
-            .credentials(creds)
-            .port(smtp_port)
-            .build();
+    let mailer = SmtpTransport::starttls_relay(smtp_server)
+        .map_err(|_| Error::SmtpConfig)?
+        .credentials(creds)
+        .port(smtp_port)
+        .build();
 
     // Send email and return result
     mailer.send(&email).map_err(|_| Error::SendFailed)?;
-    
+
     Ok(())
 }
 // endregion: ---- Send Email
@@ -63,12 +62,12 @@ mod tests {
             ("{{name}}".to_string(), "Alice".to_string()),
             ("{{code}}".to_string(), "123456".to_string()),
         ];
-        
+
         let mut result = fx_template.to_string();
         for (k, v) in &fx_placeholders {
             result = result.replace(k, v);
         }
-        
+
         assert_eq!(result, "Hello Alice, your code is 123456");
     }
 
@@ -95,14 +94,14 @@ mod tests {
         let fx_to_email = "to@example.com".parse().unwrap();
         let fx_subject = "Test Subject";
         let fx_html_content = "<h1>Test</h1>";
-        
+
         let email = Message::builder()
             .from(fx_from_email)
             .to(fx_to_email)
             .subject(fx_subject)
             .header(header::ContentType::TEXT_HTML)
             .singlepart(SinglePart::html(fx_html_content.to_string()));
-            
+
         assert!(email.is_ok());
     }
 }

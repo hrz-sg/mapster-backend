@@ -1,12 +1,12 @@
-use axum::{extract::State, http::HeaderMap, Json};
-use serde_json::json;
-use lib_core::model::user::{UserBmc, UserForAuth};
-use lib_core::ctx::Ctx;
-use lib_auth::token::{validate_web_token, generate_web_tokens};
-use lib_auth::auth_config;
-use lib_core::model::ModelManager;
 use crate::error::{Error, Result};
 use crate::utils::token::extract_bearer_token;
+use axum::{Json, extract::State, http::HeaderMap};
+use lib_auth::auth_config;
+use lib_auth::token::{generate_web_tokens, validate_web_token};
+use lib_core::ctx::Ctx;
+use lib_core::model::ModelManager;
+use lib_core::model::user::{UserBmc, UserForAuth};
+use serde_json::json;
 
 pub async fn api_refresh_token_handler(
     State(mm): State<ModelManager>,
@@ -32,7 +32,7 @@ pub async fn api_refresh_token_handler(
     // -- Find user
     let user: UserForAuth = UserBmc::first_by_username(&Ctx::root_ctx(), &mm, &claims.sub)
         .await?
-		.ok_or(Error::LoginFailUsernameNotFound)?;
+        .ok_or(Error::LoginFailUsernameNotFound)?;
 
     // -- Validate salt after changing password
     if claims.salt != user.token_salt.to_string() {
@@ -47,5 +47,4 @@ pub async fn api_refresh_token_handler(
         "refresh_token": refresh_token,
         "expires_in": auth_config().ACCESS_TOKEN_TTL
     })))
-
 }

@@ -6,18 +6,18 @@ pub enum Error {
     SmtpConfig,
     SmtpConnection,
     SmtpAuth,
-    
+
     // Email Content
     InvalidEmail,
     InvalidSubject,
     TemplateNotFound,
     TemplateProcessing,
-    
+
     // Sending
     SendFailed,
     RecipientRejected,
     ServerUnavailable,
-    
+
     // Configuration
     MissingConfig(String),
     InvalidConfig(String),
@@ -45,9 +45,7 @@ impl Error {
             }
             Error::InvalidEmail => "Invalid email address format",
             Error::InvalidSubject => "Invalid email subject",
-            Error::TemplateNotFound | Error::TemplateProcessing => {
-                "Email template error"
-            }
+            Error::TemplateNotFound | Error::TemplateProcessing => "Email template error",
             Error::SendFailed | Error::RecipientRejected | Error::ServerUnavailable => {
                 "Failed to send email"
             }

@@ -24,16 +24,16 @@ const LIST_LIMIT_MAX: i64 = 5000;
 
 #[derive(Iden)]
 pub enum CommonIden {
-	Id,
-	OwnerId,
+    Id,
+    OwnerId,
 }
 
 #[derive(Iden)]
 pub enum TimestampIden {
-	Cid,
-	Ctime,
-	Mid,
-	Mtime,
+    Cid,
+    Ctime,
+    Mid,
+    Mtime,
 }
 
 // endregion: --- SeaQuery Idens
@@ -46,25 +46,25 @@ pub enum TimestampIden {
 /// Note: This trait should not be confused with the BaseCrudBmc trait, which provides
 ///       common default CRUD BMC functions for a given Bmc/Entity.
 pub trait DbBmc {
-	const TABLE: &'static str;
+    const TABLE: &'static str;
 
-	fn table_ref() -> TableRef {
-		TableRef::Table(SIden(Self::TABLE).into_iden())
-	}
+    fn table_ref() -> TableRef {
+        TableRef::Table(SIden(Self::TABLE).into_iden())
+    }
 
-	/// Specifies that the table for this Bmc has timestamps (cid, ctime, mid, mtime) columns.
-	/// This will allow the code to update those as needed.
-	///
-	/// default: true
-	fn has_timestamps() -> bool {
-		true
-	}
+    /// Specifies that the table for this Bmc has timestamps (cid, ctime, mid, mtime) columns.
+    /// This will allow the code to update those as needed.
+    ///
+    /// default: true
+    fn has_timestamps() -> bool {
+        true
+    }
 
-	/// Specifies if the entity table managed by this BMC
-	/// has an `owner_id` column that needs to be set on create (by default ctx.user_id).
-	///
-	/// default: false
-	fn has_owner_id() -> bool {
-		false
-	}
+    /// Specifies if the entity table managed by this BMC
+    /// has an `owner_id` column that needs to be set on create (by default ctx.user_id).
+    ///
+    /// default: false
+    fn has_owner_id() -> bool {
+        false
+    }
 }

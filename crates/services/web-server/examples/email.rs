@@ -16,15 +16,14 @@ async fn print_response(response: reqwest::Response) -> Result<()> {
     Ok(())
 }
 
-
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenvy::dotenv().ok();
 
     let client = create_client();
-    
+
     println!("=== Testing Email Endpoints ===");
-    
+
     // Test email verification
     println!("\nSending verification email test...");
     let response = client

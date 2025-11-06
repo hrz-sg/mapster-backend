@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
-use sea_query::Value;
 use modql::filter::{IntoSeaError, SeaResult};
+use sea_query::Value;
 use serde_json::Value as JsonValue;
 
 pub fn time_to_sea_value(json_value: JsonValue) -> SeaResult<Value> {
@@ -17,4 +17,3 @@ pub fn time_to_sea_value(json_value: JsonValue) -> SeaResult<Value> {
     // Return Value
     Ok(Value::ChronoDateTimeUtc(Some(Box::new(datetime))))
 }
-
