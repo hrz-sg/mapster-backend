@@ -1,4 +1,5 @@
 use lib_storage::oss::OssClient;
+use lib_utils::file::validate_file;
 use serde_json::json;
 use std::{fs, path::Path};
 use std::str;
@@ -41,9 +42,12 @@ async fn main() -> Result<()> {
         let content = fs::read(path)?;
         let filename = path.file_name().unwrap().to_string_lossy().to_string();
 
+        // --- Validate & define mime
+        let (mime, _) = validate_file(&filename, &content)?;
+
         // --- Upload file
         println!("\n--- Uploading File ---");
-        let (url, mime) = oss.upload(&filename, &content).await?;
+        let url = oss.upload(&filename, &content, &mime).await?;
         print_json(
             "Upload Result",
             json!({

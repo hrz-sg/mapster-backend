@@ -24,18 +24,27 @@ pub async fn api_create_post_handler(
     let mut title = String::new();
     let mut description = String::new();
     let mut files = Vec::new();
+    let mut thumbnail: Option<Vec<u8>> = None;
 
     // -- Extract fields from multipart form data
     while let Some(field) = multipart.next_field().await.unwrap() {
         let name = field.name().unwrap_or("").to_string();
+
         match name.as_str() {
             "title" => title = field.text().await.unwrap_or_default(),
             "description" => description = field.text().await.unwrap_or_default(),
+
             "files[]" | "file" => {
                 let filename = field.file_name().unwrap_or("upload.bin").to_string();
                 let data = field.bytes().await.unwrap().to_vec();
                 files.push((filename, data));
             }
+
+            "thumbnail" => {
+                let data = field.bytes().await.unwrap().to_vec();
+                thumbnail = Some(data);
+            }
+
             _ => (),
         }
     }
@@ -52,6 +61,7 @@ pub async fn api_create_post_handler(
         title,
         description,
         files,
+        thumbnail,
     };
 
     let post_id = PostService::create_with_media(&ctx, &mm, payload).await?;

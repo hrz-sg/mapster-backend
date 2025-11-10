@@ -3,3 +3,4 @@ pub mod envs;
 pub mod file;
 pub mod mime;
 pub mod time;
+pub mod media;

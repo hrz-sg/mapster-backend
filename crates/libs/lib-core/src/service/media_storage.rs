@@ -3,7 +3,7 @@ use crate::model::Result;
 
 #[async_trait::async_trait]
 pub trait Storage: Send + Sync {
-    async fn upload(&self, filename: &str, data: &[u8]) -> Result<(String, String)>;
+    async fn upload(&self, filename: &str, data: &[u8], mime: &str) -> Result<String>;
     async fn delete_by_url(&self, url: &str) -> Result<()>;
 }
 
@@ -19,9 +19,9 @@ impl MediaStorageService {
 
 #[async_trait::async_trait]
 impl Storage for MediaStorageService {
-    async fn upload(&self, filename: &str, data: &[u8]) -> Result<(String, String)> {
-        let (url, mime) = self.oss.upload(filename, data).await?;
-        Ok((url, mime))
+    async fn upload(&self, filename: &str, data: &[u8], mime: &str) -> Result<String> {
+        let url = self.oss.upload(filename, data, mime).await?;
+        Ok(url)
     }
 
     async fn delete_by_url(&self, url: &str) -> Result<()> {

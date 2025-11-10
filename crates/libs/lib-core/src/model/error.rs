@@ -2,7 +2,7 @@ use crate::model::store::dbx;
 use derive_more::From;
 use lib_auth::pwd;
 use lib_storage::oss;
-use lib_utils::file;
+use lib_utils::{file, media};
 use serde::Serialize;
 use serde_with::{DisplayFromStr, serde_as};
 use sqlx::error::DatabaseError;
@@ -107,6 +107,12 @@ impl std::error::Error for Error {}
 // region: ---- Froms
 impl From<file::Error> for Error {
     fn from(err: file::Error) -> Self {
+        Self::ValidationFail(err.to_string())
+    }
+}
+
+impl From<media::Error> for Error {
+    fn from(err: media::Error) -> Self {
         Self::ValidationFail(err.to_string())
     }
 }

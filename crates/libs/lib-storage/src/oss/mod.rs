@@ -4,7 +4,6 @@ use ali_oss_rs::acl::ObjectAclOperations;
 use ali_oss_rs::object::ObjectOperations;
 use ali_oss_rs::object_common::GetObjectOptions;
 use ali_oss_rs::object_common::{ObjectAcl, PutObjectOptions};
-use lib_utils::file::validate_file;
 use std::sync::Arc;
 use tracing::{debug, info};
 
@@ -43,15 +42,13 @@ impl OssClient {
     }
 
     /// --- Load file in OSS and make it public
-    pub async fn upload(&self, filename: &str, data: &[u8]) -> Result<(String, String)> {
+    pub async fn upload(&self, filename: &str, data: &[u8], mime: &str) -> Result<String> {
         info!("{:<12} - Uploading file: {}", "OSS", filename);
         debug!("{:<12} - File size: {} bytes", "OSS", data.len());
 
-        let mime = validate_file(filename, data)?;
-
         let put_options = PutObjectOptions {
             content_md5: None,
-            mime_type: Some(mime.clone()),
+            mime_type: Some(mime.to_owned()),
             ..Default::default()
         };
 
@@ -67,7 +64,7 @@ impl OssClient {
 
         info!("{:<12} - File uploaded successfully: {}", "OSS", filename);
 
-        Ok((self.public_url(filename), mime))
+        Ok(self.public_url(filename))
     }
 
     /// --- Download file as bites

@@ -11,3 +11,4 @@ base64 = "0.22.1"
 time = { version = "0.3", features = ["formatting", "parsing"] }
 cans = "1.2"
 serde = { workspace = true}
+image = { version = "0.25.8", features = ["jpeg", "png", "gif", "webp"] }

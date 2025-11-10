@@ -2,6 +2,7 @@ use crate::ctx::Ctx;
 use crate::model::{ModelManager, Result};
 use crate::model::post_media::{PostMedia, PostMediaBmc, PostMediaForCreate, PostMediaForUpdate};
 use crate::service::media_storage::{Storage, MediaStorageService};
+use lib_utils::file::validate_file;
 
 pub struct PostMediaService<S: Storage> {
     storage: S,
@@ -27,16 +28,17 @@ impl<S: Storage> PostMediaService<S> {
         data: &[u8],
         sort_order: i32,
     ) -> Result<i64> {
-        let (url, mime) = self.storage.upload(filename, data).await?;
-        let media_type = if mime.starts_with("video/") { "video" } else { "image" };
+        let (mime, media_type) = validate_file(filename, data)?;
+
+        let media_url = self.storage.upload(filename, data, &mime).await?;
 
         PostMediaBmc::create(
             ctx,
             mm,
             PostMediaForCreate {
                 post_id,
-                media_url: url,
-                media_type: media_type.into(),
+                media_url,
+                media_type,
                 mime_type: mime,
                 width: None,
                 height: None,
@@ -68,17 +70,17 @@ impl<S: Storage> PostMediaService<S> {
         self.storage.delete_by_url(&old.media_url).await?;
 
         // -- Update new file
-        let (url, mime) = self.storage.upload(filename, data).await?;
-        let media_type = if mime.starts_with("video/") { "video" } else { "image" };
+        let (mime, media_type) = validate_file(filename, data)?;
+        let media_url = self.storage.upload(filename, data, &mime).await?;
 
         PostMediaBmc::update(
             ctx,
             mm,
             media_id,
             PostMediaForUpdate {
-                media_url: Some(url),
+                media_url: Some(media_url),
                 mime_type: Some(mime),
-                media_type: Some(media_type.into()),
+                media_type: Some(media_type),
                 file_size: Some(data.len() as i64),
                 ..Default::default()
             },
