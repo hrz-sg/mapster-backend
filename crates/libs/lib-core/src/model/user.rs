@@ -43,6 +43,14 @@ pub struct User {
     pub email: String,
     pub typ: UserTyp,
     pub email_verified: bool,
+    pub avatar_url: Option<String>,
+}
+
+#[derive(Fields, FromRow, Debug, Serialize)]
+pub struct UserForPreview {
+    pub id: i64,
+    pub username: String,
+    pub avatar_url: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -86,17 +94,13 @@ pub struct UserForAuth {
     pub token_salt: Uuid,
 }
 
-#[derive(Serialize)]
-pub struct UserDTO {
-    pub id: i64,
-    pub username: String,
-}
 /// Marker trait
 pub trait UserBy: HasSeaFields + for<'r> FromRow<'r, PgRow> + Unpin + Send {}
 
 impl UserBy for User {}
 impl UserBy for UserForLogin {}
 impl UserBy for UserForAuth {}
+impl UserBy for UserForPreview {}
 
 // Note: Since the entity properties Iden will be given by modql
 //       UserIden does not have to be exhaustive, but just have the columns
@@ -104,6 +108,7 @@ impl UserBy for UserForAuth {}
 enum UserIden {
     Id,
     Username,
+    AvatarUrl,
     Email,
     Pwd,
     EmailVerified,
@@ -213,6 +218,27 @@ impl UserBmc {
         base::get::<Self, _>(ctx, mm, id).await
     }
 
+    pub async fn get_preview(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        id: i64,
+    ) -> Result<Option<UserForPreview>> {
+
+        let mut query = Query::select();
+        query
+            .from(Self::table_ref())
+            .expr_as(Expr::col(UserIden::Id), "id")
+            .expr_as(Expr::col(UserIden::Username), "username")
+            .expr_as(Expr::col(UserIden::AvatarUrl), "avatar_url")
+            .and_where(Expr::col(UserIden::Id).eq(id));
+
+        let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
+        let sqlx_query = sqlx::query_as_with::<_, UserForPreview, _>(&sql, values);
+
+        let entity = mm.dbx().fetch_optional(sqlx_query).await?;
+        Ok(entity)
+    }
+
     pub async fn first_by_username<E>(
         _ctx: &Ctx,
         mm: &ModelManager,
@@ -244,6 +270,31 @@ impl UserBmc {
         list_options: Option<ListOptions>,
     ) -> Result<Vec<User>> {
         base::list::<Self, _, _>(ctx, mm, filter, list_options).await
+    }
+
+    pub async fn list_by_ids(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        ids: &[i64],
+    ) -> Result<Vec<UserForPreview>> {
+        if ids.is_empty() {
+            return Ok(vec![]);
+        }
+
+        // -- Build query
+        let mut query = Query::select();
+        query
+            .from(Self::table_ref())
+            .expr_as(Expr::col(UserIden::Id), "id")
+            .expr_as(Expr::col(UserIden::Username), "username")
+            .expr_as(Expr::col(UserIden::AvatarUrl), "avatar_url")
+            .and_where(Expr::col(UserIden::Id).is_in(ids.iter().cloned().collect::<Vec<_>>()));
+        
+        // -- Exec query
+        let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
+        let sqlx_query = sqlx::query_as_with::<_, UserForPreview, _>(&sql, values);
+        let entities = mm.dbx().fetch_all(sqlx_query).await?;
+        Ok(entities)
     }
 
     pub async fn update_pwd(ctx: &Ctx, mm: &ModelManager, id: i64, pwd_clear: &str) -> Result<()> {

@@ -5,7 +5,7 @@ use axum::extract::State;
 use lib_auth::pwd::{self, ContentToHash, SchemeStatus};
 use lib_core::ctx::Ctx;
 use lib_core::model::ModelManager;
-use lib_core::model::user::{UserBmc, UserDTO, UserForLogin};
+use lib_core::model::user::{UserBmc, UserForLogin};
 use serde::{Deserialize, Serialize};
 use tower_cookies::Cookies;
 use tracing::debug;
@@ -59,7 +59,7 @@ pub async fn api_login_handler(
     Ok(Json(LoginResponse {
         success: true,
         message: format!("Welcome back, {}!", username),
-        user: UserDTO {
+        user: UserInfo {
             id: user_id,
             username,
         },
@@ -77,9 +77,16 @@ pub struct LoginPayload {
 pub struct LoginResponse {
     success: bool,
     message: String,
-    user: UserDTO,
+    user: UserInfo,
     token: Option<String>,
 }
+
+#[derive(Debug, Serialize)]
+pub struct UserInfo {
+    pub id: i64,
+    pub username: String,
+}
+
 // endregion: --- Login
 
 // region:    --- Logout

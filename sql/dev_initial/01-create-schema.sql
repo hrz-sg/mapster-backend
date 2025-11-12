@@ -8,6 +8,7 @@ CREATE TABLE "user" (
     typ user_typ NOT NULL DEFAULT 'User',
     username VARCHAR(128) NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL UNIQUE,
+    avatar_url TEXT,
 
     -- Auth
     pwd VARCHAR(256),
@@ -45,6 +46,9 @@ CREATE TABLE post (
     thumbnail_url TEXT,
     media_count INT NOT NULL DEFAULT 0,
     has_video BOOLEAN NOT NULL DEFAULT FALSE,
+
+    -- Stats
+    like_count BIGINT NOT NULL DEFAULT 0,
 
     -- Audit fields
     cid BIGINT NOT NULL REFERENCES "user"(id),

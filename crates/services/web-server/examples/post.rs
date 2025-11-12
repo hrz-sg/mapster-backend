@@ -44,9 +44,9 @@ async fn main() -> Result<()> {
     let form = multipart::Form::new()
         .text("title", "Post title")
         .text("description", "Post description")
-        .file("files[]", format!("{}/image-1.jpg", ASSETS_DIR))
+        .file("media", format!("{}/image-1.jpg", ASSETS_DIR))
         .await?
-        .file("files[]", format!("{}/image-2.jpg", ASSETS_DIR))
+        .file("media", format!("{}/image-2.jpg", ASSETS_DIR))
         .await?;
 
     // -- Send POST-request
@@ -64,7 +64,7 @@ async fn main() -> Result<()> {
             multipart::Form::new()
                 .text("title", "Post title")
                 .text("description", "Post description")
-                .file("files[]", format!("{}/image-1.jpg", ASSETS_DIR))
+                .file("media", format!("{}/image-1.jpg", ASSETS_DIR))
                 .await?
         )
         .send()
@@ -104,7 +104,7 @@ async fn main() -> Result<()> {
 
     let update_form = multipart::Form::new()
         .text("title", "Updated Title from Test")
-        .file("add_files[]", image3)
+        .file("add_media", image3)
         .await?;
 
     let update_resp = client

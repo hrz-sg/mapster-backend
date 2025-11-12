@@ -4,9 +4,9 @@ use axum::{
     extract::{Multipart, Path, State},
 };
 use lib_core::{
-    ctx::Ctx,
-    model::{ModelManager, post::Post},
-    service::post::{CreatePostPayload, PostService, UpdatePostPayload},
+    ctx::Ctx, dto::post_dto::{PostDetailDto, PostFeedItemDto}, 
+    model::ModelManager, 
+    service::post::{CreatePostPayload, PostService, UpdatePostPayload}
 };
 use serde::Serialize;
 use tracing::debug;
@@ -23,7 +23,7 @@ pub async fn api_create_post_handler(
 
     let mut title = String::new();
     let mut description = String::new();
-    let mut files = Vec::new();
+    let mut media = Vec::new();
     let mut thumbnail: Option<Vec<u8>> = None;
 
     // -- Extract fields from multipart form data
@@ -34,10 +34,10 @@ pub async fn api_create_post_handler(
             "title" => title = field.text().await.unwrap_or_default(),
             "description" => description = field.text().await.unwrap_or_default(),
 
-            "files[]" | "file" => {
+            "media" => {
                 let filename = field.file_name().unwrap_or("upload.bin").to_string();
                 let data = field.bytes().await.unwrap().to_vec();
-                files.push((filename, data));
+                media.push((filename, data));
             }
 
             "thumbnail" => {
@@ -50,7 +50,7 @@ pub async fn api_create_post_handler(
     }
 
     // -- Check if files attached
-    if files.is_empty() {
+    if media.is_empty() {
         return Err(Error::File(lib_utils::file::Error::ValidationFail(
             "At least one media file required".into(),
         )));
@@ -60,7 +60,7 @@ pub async fn api_create_post_handler(
     let payload = CreatePostPayload {
         title,
         description,
-        files,
+        media,
         thumbnail,
     };
 
@@ -73,14 +73,14 @@ pub async fn api_create_post_handler(
     }))
 }
 
-pub async fn api_list_posts_handler(
+pub async fn api_list_feed_posts_handler(
     State(mm): State<ModelManager>,
     // ctx: &Ctx,
 ) -> Result<Json<ListPostsResponse>> {
     debug!("{:<12} - api_list_post_handler", "HANDLER");
 
     let ctx = Ctx::root_ctx();
-    let posts = PostService::list(&ctx, &mm).await?;
+    let posts = PostService::list_feed_posts(&ctx, &mm).await?;
 
     Ok(Json(ListPostsResponse {
         success: true,
@@ -88,7 +88,7 @@ pub async fn api_list_posts_handler(
     }))
 }
 
-pub async fn api_get_post_handler(
+pub async fn api_get_post_detail_by_id(
     State(mm): State<ModelManager>,
     Path(post_id): Path<i64>,
     // ctx: &Ctx,
@@ -96,7 +96,7 @@ pub async fn api_get_post_handler(
     debug!("{:<12} - api_get_post_handler", "HANDLER");
 
     let ctx = Ctx::root_ctx();
-    let post = PostService::get_post(&ctx, &mm, post_id).await?;
+    let post = PostService::get_post_detail_by_id(&ctx, &mm, post_id).await?;
 
     Ok(Json(GetPostResponse {
         success: true,
@@ -206,13 +206,13 @@ pub struct DeletePostResponse {
 #[derive(Debug, Serialize)]
 pub struct ListPostsResponse {
     pub success: bool,
-    pub posts: Vec<Post>,
+    pub posts: Vec<PostFeedItemDto>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct GetPostResponse {
     pub success: bool,
-    pub post: Post,
+    pub post: PostDetailDto,
 }
 
 #[derive(Debug, Serialize)]

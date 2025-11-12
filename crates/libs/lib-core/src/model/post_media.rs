@@ -16,12 +16,7 @@ pub struct PostMedia {
     pub media_url: String,
     pub media_type: String, // "image" or "video"
     pub mime_type: String,
-    pub width: Option<i32>,
-    pub height: Option<i32>,
-    pub file_size: Option<i64>,
-    pub duration: Option<i32>, // for videos in seconds
     pub sort_order: i32,       // order in carousel
-    pub alt_text: Option<String>,
 }
 
 #[derive(Fields, Deserialize)]
