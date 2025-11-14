@@ -49,6 +49,8 @@ CREATE TABLE post (
 
     -- Stats
     like_count BIGINT NOT NULL DEFAULT 0,
+    comment_count BIGINT NOT NULL DEFAULT 0,
+    saved_count BIGINT NOT NULL DEFAULT 0,
 
     -- Audit fields
     cid BIGINT NOT NULL REFERENCES "user"(id),

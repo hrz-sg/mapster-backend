@@ -153,6 +153,8 @@ impl PostService {
             thumbnail_url: post.thumbnail_url,
             medias,
             like_count: post.like_count,
+            comment_count: post.comment_count,
+            saved_count: post.saved_count,
         })
     }
 

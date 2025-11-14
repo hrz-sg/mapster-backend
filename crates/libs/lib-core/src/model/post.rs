@@ -19,6 +19,8 @@ pub struct Post {
     pub thumbnail_url: Option<String>,
     pub media_count: i32,
     pub like_count: i64,
+    pub comment_count: i64,
+    pub saved_count: i64,
     pub has_video: bool,
 }
 
@@ -55,12 +57,14 @@ pub struct PostFilter {
 
 #[derive(Debug, Clone, FromRow)]
 pub struct PostWithUser {
-    pub post_id: i64,
-    pub post_title: String,
-    pub post_thumbnail_url: Option<String>,
-    pub post_media_count: i32,
-    pub post_has_video: bool,
-    pub post_like_count: i64,
+    pub id: i64,
+    pub title: String,
+    pub thumbnail_url: Option<String>,
+    pub media_count: i32,
+    pub has_video: bool,
+    pub like_count: i64,
+    pub comment_count: i64,
+    pub saved_count: i64,
     pub user_id: i64,
     pub username: String,
     pub avatar_url: Option<String>,

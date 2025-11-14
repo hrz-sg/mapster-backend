@@ -23,4 +23,6 @@ pub struct PostDetailDto {
     pub thumbnail_url: Option<String>,
     pub medias: Vec<PostMedia>,
     pub like_count: i64,
+    pub comment_count: i64,
+    pub saved_count: i64,
 }
