@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 use std::vec::Vec;
 use crate::ctx::Ctx;
-use crate::dto::post_dto::{PostDetailDto, PostFeedItemDto};
-use crate::dto::user_dto::UserPreviewDto;
+use crate::model::post::{PostFeedItem, PostFilter, PostForDetail};
 use crate::model::user::{User, UserBmc, UserForPreview};
 use crate::model::{
     Result, ModelManager,
@@ -115,7 +114,6 @@ impl PostService {
                     file_size: Some(data.len() as i64),
                     duration: None,
                     sort_order: i as i32,
-                    alt_text: None,
                 },
             )
             .await?;
@@ -130,7 +128,7 @@ impl PostService {
         ctx: &Ctx,
         mm: &ModelManager,
         post_id: i64,
-    ) -> Result<PostDetailDto> {
+    ) -> Result<PostForDetail> {
         // -- Get the post itself
         let post = PostBmc::get(ctx, mm, post_id).await?;
 
@@ -140,12 +138,12 @@ impl PostService {
         // -- Get all Post Medias
         let medias = PostMediaBmc::list_by_post(ctx, mm, post_id).await?;
 
-        // -- Create and send Dto
-        Ok(PostDetailDto {
+        // -- Create and send PostForDetail
+        Ok(PostForDetail {
             id: post.id,
             title: post.title,
             description: post.description,
-            author: UserPreviewDto {
+            author: UserForPreview {
                 id: user.id,
                 username: user.username,
                 avatar_url: None,
@@ -159,7 +157,10 @@ impl PostService {
     }
 
     /// --- Get posts list for feed
-    pub async fn list_feed_posts(ctx: &Ctx, mm: &ModelManager) -> Result<Vec<PostFeedItemDto>> {
+    pub async fn list_feed_posts(
+        ctx: &Ctx, 
+        mm: &ModelManager
+    ) -> Result<Vec<PostFeedItem>> {
         let posts = PostBmc::list(ctx, mm, None, None).await?;
         let user_ids: Vec<i64> = posts.iter().map(|p| p.user_id).collect();
 
@@ -172,19 +173,19 @@ impl PostService {
             .map(|post| {
                 let user = user_map.get(&post.user_id);
                 let author = user.map_or(
-                    UserPreviewDto {
+                    UserForPreview {
                         id: 0,
                         username: "Unknown".into(),
                         avatar_url: None,
                     },
-                    |u| UserPreviewDto {
+                    |u| UserForPreview {
                         id: u.id,
                         username: u.username.clone(),
                         avatar_url: u.avatar_url.clone(),
                     },
                 );
 
-                PostFeedItemDto {
+                PostFeedItem {
                     id: post.id,
                     title: post.title,
                     author,
@@ -199,6 +200,53 @@ impl PostService {
         Ok(feed)
     }
 
+    /// --- Get user posts
+    pub async fn list_user_posts(
+    ctx: &Ctx,
+    mm: &ModelManager,
+    user_id: i64,
+) -> Result<Vec<PostFeedItem>> {
+
+        // -- Create filters
+        let filters = vec![PostFilter::by_user(user_id)];
+
+        // -- Get User posts
+        let posts = PostBmc::list(ctx, mm, Some(filters), None).await?;
+
+        // -- Get User data
+        let users = UserBmc::list_by_ids(ctx, mm, &[user_id]).await?;
+        let user_map: HashMap<i64, UserForPreview> =
+            users.into_iter().map(|u| (u.id, u)).collect();
+
+        // -- Create DTO
+        let feed = posts.into_iter().map(|post| {
+            let user = user_map.get(&post.user_id);
+            let author = user.map_or(
+                UserForPreview {
+                    id: 0,
+                    username: "Unknown".into(),
+                    avatar_url: None,
+                },
+                |u| UserForPreview {
+                    id: u.id,
+                    username: u.username.clone(),
+                    avatar_url: u.avatar_url.clone(),
+                },
+            );
+
+            PostFeedItem {
+                id: post.id,
+                title: post.title,
+                author,
+                thumbnail_url: post.thumbnail_url,
+                media_count: post.media_count,
+                has_video: post.has_video,
+                like_count: post.like_count,
+            }
+        }).collect();
+
+        Ok(feed)
+    }
 
     // --- Update post
     pub async fn update_with_media(
@@ -235,7 +283,11 @@ impl PostService {
     }
 
     // --- Delete post
-    pub async fn delete(ctx: &Ctx, mm: &ModelManager, id: i64) -> Result<()> {
+    pub async fn delete(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        id: i64
+    ) -> Result<()> {
         let mm_txn = mm.new_with_txn()?;
         let dbx = mm_txn.dbx();
         dbx.begin_txn().await?;

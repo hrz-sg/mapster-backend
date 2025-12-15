@@ -8,6 +8,8 @@ mod store;
 pub mod post;
 pub mod post_media;
 pub mod user;
+pub mod user_stats;
+pub mod user_follow;
 
 pub use self::error::{Error, Result};
 use crate::model::store::{dbx::Dbx, new_db_pool};

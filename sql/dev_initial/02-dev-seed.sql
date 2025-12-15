@@ -5,8 +5,8 @@ INSERT INTO "user"
 
 -- Create demo1 User
 INSERT INTO "user" 
-    (username, email, cid, ctime, mid, mtime) VALUES 
-    ('demo1', 'demo1@example.com', 0, now(), 0, now());
+    (id, username, email, cid, ctime, mid, mtime) VALUES 
+    (1111, 'demo1', 'demo1@example.com', 0, now(), 0, now());
 
 -- ==========================================================
 -- USERS 
@@ -823,3 +823,375 @@ VALUES
         1003,
         now()
     );
+
+
+-- ============================================
+-- Posts for demo1 (user_id = 1111)
+-- ============================================
+
+INSERT INTO post (
+    id,
+    user_id,
+    title,
+    description,
+    is_published,
+    thumbnail_url,
+    media_count,
+    has_video,
+    like_count,
+    comment_count,
+    saved_count,
+    cid,
+    ctime,
+    mid,
+    mtime
+)
+VALUES
+-- Post 1
+(
+    3001,
+    1111,
+    'Exploring the Streets of Seoul',
+    'My trip to Seoul felt like stepping into a vibrant blend of tradition and modern life.
+Colorful markets, futuristic skyscrapers, cozy cafes — everything was full of energy.
+I visited ancient palaces and walked through narrow alleys illuminated by warm lanterns.
+Korean cuisine amazed me: spicy, rich, and full of character.
+Street performers filled the air with music near Hongdae.
+Even late at night, the city seemed wide awake and full of life.
+
+I spent hours wandering through small neighborhoods,
+discovering peaceful temples hidden among tall buildings.
+The metro system made traveling easy and fast.
+In the evenings, neon lights reflected beautifully on the wet streets after a light rain.
+I met several friendly locals who recommended unique places to visit.
+Seoul left me inspired and eager to return for a longer adventure.',
+    TRUE,
+    'https://images.unsplash.com/photo-1538485399081-7191377e8241?q=80&w=374&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    3,
+    TRUE,
+    55000,
+    2400,
+    11200,
+    0,
+    now(),
+    0,
+    now()
+),
+
+-- Post 2
+(
+    3002,
+    1111,
+    'Моё тёплое путешествие в Турцию',
+    'Турция встретила меня солнцем, ароматами специй и невероятным гостеприимством.
+Улицы Стамбула полны жизни: продавцы, чайные, мечети, голуби на площадях.
+Я гулял по Галатскому мосту, наблюдая рыбаков и шумный поток людей.
+Турецкий чай оказался удивительно бодрящим, а баклава — просто волшебной.
+
+Особенно запомнились вечерние прогулки вдоль Босфора.
+Лёгкий ветер, огни на воде и ощущение спокойствия делали этот момент идеальным.
+Я посетил древние улочки, где время словно идёт медленнее.
+Каждый день приносил новые вкусы, эмоции и вдохновение.
+Турция стала местом, куда хочется возвращаться снова и снова.',
+    TRUE,
+    'https://images.unsplash.com/photo-1589561454226-796a8aa89b05?q=80&w=867&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    2,
+    FALSE,
+    8200,
+    630,
+    2900,
+    0,
+    now(),
+    0,
+    now()
+),
+
+-- Post 3
+(
+    3003,
+    1111,
+    'Ein ruhiger Morgen am See',
+    'Der Morgen am See war voller Ruhe.
+Die Luft war frisch, und leichter Nebel schwebte über dem Wasser.
+Die ersten Sonnenstrahlen spiegelten sich auf der glatten Oberfläche.
+Ich hörte nur das Zwitschern der Vögel und das leise Rascheln der Blätter.
+Es war ein Moment der völligen Stille, weit weg vom Alltag.
+
+Ich ging langsam am Ufer entlang und spürte, wie die klare Luft meine Gedanken ordnete.
+Ein paar Fischer bereiteten ihre Boote vor, freundlich lächelnd.
+Der Duft von Tannen und feuchtem Gras erfüllte die Umgebung.
+Dieser Morgen gab mir neue Energie und innere Ruhe.
+Solche Augenblicke erinnern daran, wie wichtig es ist, manchmal einfach tief durchzuatmen.',
+    TRUE,
+    'https://plus.unsplash.com/premium_photo-1677343209994-8b894e3e55c1?q=80&w=388&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    1,
+    FALSE,
+    2400,
+    180,
+    760,
+    0,
+    now(),
+    0,
+    now()
+),
+
+-- Post 4
+(
+    3004,
+    1111,
+    '日本の秋の色',
+    '日本の秋は本当に魔法のようでした。
+赤と金色の葉が街全体を包み込み、どこを歩いても美しい景色が続きます。
+静かな神社や庭園では、木々が風に揺れ、心が落ち着きました。
+季節の料理も素晴らしく、特に香ばしい焼き魚と温かいお茶が忘れられません。
+
+小さな村を訪れると、昔ながらの木造の家が並び、
+ゆっくりとした時間が流れていました。
+地元の人々はとても優しく、旅の途中で何度も助けられました。
+秋の日本は視覚だけでなく心にも残る体験でした。
+必ずまた訪れたいと思います。',
+    FALSE,
+    'https://plus.unsplash.com/premium_photo-1697630321943-413a918eff27?q=80&w=387&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    1,
+    FALSE,
+    12500,
+    840,
+    3100,
+    0,
+    now(),
+    0,
+    now()
+),
+
+-- Post 5
+(
+    3005,
+    1111,
+    'A Quiet Weekend in the Countryside',
+    'I spent the weekend in a small countryside house surrounded by fields and forests.
+The silence felt calming and refreshing after busy weeks in the city.
+Birds greeted the morning with soft melodies.
+I enjoyed slow breakfasts and long walks on dirt paths.
+The cool breeze carried the scent of pine and fresh earth.
+
+In the afternoons, I read books while sitting near the window, watching sunlight shift across the floor.
+Evenings were filled with warm tea and peaceful stillness.
+Without noise or rush, every hour felt meaningful.
+The countryside reminded me how simple moments can be the most fulfilling.
+It was the perfect escape to reset my mind and body.',
+    TRUE,
+    'https://images.unsplash.com/photo-1530878902700-5ad4f9e4c318?q=80&w=1034&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    2,
+    FALSE,
+    1200,
+    95,
+    310,
+    0,
+    now(),
+    0,
+    now()
+);
+
+-- ============================================
+-- Posts for demo1 (user_id = 0)
+-- ============================================
+
+INSERT INTO post (
+    id,
+    user_id,
+    title,
+    description,
+    is_published,
+    thumbnail_url,
+    media_count,
+    has_video,
+    like_count,
+    comment_count,
+    saved_count,
+    cid,
+    ctime,
+    mid,
+    mtime
+)
+VALUES
+-- Post 1
+(
+    3011,
+    0,
+    'Exploring the Streets of Seoul',
+    'My trip to Seoul felt like stepping into a vibrant blend of tradition and modern life.
+Colorful markets, futuristic skyscrapers, cozy cafes — everything was full of energy.
+I visited ancient palaces and walked through narrow alleys illuminated by warm lanterns.
+Korean cuisine amazed me: spicy, rich, and full of character.
+Street performers filled the air with music near Hongdae.
+Even late at night, the city seemed wide awake and full of life.
+
+I spent hours wandering through small neighborhoods,
+discovering peaceful temples hidden among tall buildings.
+The metro system made traveling easy and fast.
+In the evenings, neon lights reflected beautifully on the wet streets after a light rain.
+I met several friendly locals who recommended unique places to visit.
+Seoul left me inspired and eager to return for a longer adventure.',
+    TRUE,
+    'https://images.unsplash.com/photo-1538485399081-7191377e8241?q=80&w=374&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    3,
+    TRUE,
+    55000,
+    2400,
+    11200,
+    0,
+    now(),
+    0,
+    now()
+),
+
+-- Post 2
+(
+    3012,
+    0,
+    'Моё тёплое путешествие в Турцию',
+    'Турция встретила меня солнцем, ароматами специй и невероятным гостеприимством.
+Улицы Стамбула полны жизни: продавцы, чайные, мечети, голуби на площадях.
+Я гулял по Галатскому мосту, наблюдая рыбаков и шумный поток людей.
+Турецкий чай оказался удивительно бодрящим, а баклава — просто волшебной.
+
+Особенно запомнились вечерние прогулки вдоль Босфора.
+Лёгкий ветер, огни на воде и ощущение спокойствия делали этот момент идеальным.
+Я посетил древние улочки, где время словно идёт медленнее.
+Каждый день приносил новые вкусы, эмоции и вдохновение.
+Турция стала местом, куда хочется возвращаться снова и снова.',
+    TRUE,
+    'https://images.unsplash.com/photo-1589561454226-796a8aa89b05?q=80&w=867&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    2,
+    FALSE,
+    8200,
+    630,
+    2900,
+    0,
+    now(),
+    0,
+    now()
+),
+
+-- Post 3
+(
+    3013,
+    0,
+    'Ein ruhiger Morgen am See',
+    'Der Morgen am See war voller Ruhe.
+Die Luft war frisch, und leichter Nebel schwebte über dem Wasser.
+Die ersten Sonnenstrahlen spiegelten sich auf der glatten Oberfläche.
+Ich hörte nur das Zwitschern der Vögel und das leise Rascheln der Blätter.
+Es war ein Moment der völligen Stille, weit weg vom Alltag.
+
+Ich ging langsam am Ufer entlang und spürte, wie die klare Luft meine Gedanken ordnete.
+Ein paar Fischer bereiteten ihre Boote vor, freundlich lächelnd.
+Der Duft von Tannen und feuchtem Gras erfüllte die Umgebung.
+Dieser Morgen gab mir neue Energie und innere Ruhe.
+Solche Augenblicke erinnern daran, wie wichtig es ist, manchmal einfach tief durchzuatmen.',
+    TRUE,
+    'https://plus.unsplash.com/premium_photo-1677343209994-8b894e3e55c1?q=80&w=388&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    1,
+    FALSE,
+    2400,
+    180,
+    760,
+    0,
+    now(),
+    0,
+    now()
+),
+
+-- Post 4
+(
+    3014,
+    0,
+    '日本の秋の色',
+    '日本の秋は本当に魔法のようでした。
+赤と金色の葉が街全体を包み込み、どこを歩いても美しい景色が続きます。
+静かな神社や庭園では、木々が風に揺れ、心が落ち着きました。
+季節の料理も素晴らしく、特に香ばしい焼き魚と温かいお茶が忘れられません。
+
+小さな村を訪れると、昔ながらの木造の家が並び、
+ゆっくりとした時間が流れていました。
+地元の人々はとても優しく、旅の途中で何度も助けられました。
+秋の日本は視覚だけでなく心にも残る体験でした。
+必ずまた訪れたいと思います。',
+    FALSE,
+    'https://plus.unsplash.com/premium_photo-1697630321943-413a918eff27?q=80&w=387&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    1,
+    FALSE,
+    12500,
+    840,
+    3100,
+    0,
+    now(),
+    0,
+    now()
+),
+
+-- Post 5
+(
+    3015,
+    0,
+    'A Quiet Weekend in the Countryside',
+    'I spent the weekend in a small countryside house surrounded by fields and forests.
+The silence felt calming and refreshing after busy weeks in the city.
+Birds greeted the morning with soft melodies.
+I enjoyed slow breakfasts and long walks on dirt paths.
+The cool breeze carried the scent of pine and fresh earth.
+
+In the afternoons, I read books while sitting near the window, watching sunlight shift across the floor.
+Evenings were filled with warm tea and peaceful stillness.
+Without noise or rush, every hour felt meaningful.
+The countryside reminded me how simple moments can be the most fulfilling.
+It was the perfect escape to reset my mind and body.',
+    TRUE,
+    'https://images.unsplash.com/photo-1530878902700-5ad4f9e4c318?q=80&w=1034&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    2,
+    FALSE,
+    1200,
+    95,
+    310,
+    0,
+    now(),
+    0,
+    now()
+);
+
+-- ======================================
+-- User Follows
+-- ======================================
+INSERT INTO user_follow (follower_id, following_id) VALUES
+(0, 1001),
+(0, 1002),
+(0, 1111),
+-- Followers of root (0):
+(1003, 0),
+(1111, 0),
+
+-- stacy.up (1001) follows
+(1001, 1002),
+(1001, 1003),
+(1001, 1111),
+
+-- kristina_23 (1002) follows
+(1002, 1001),
+(1002, 1003),
+
+-- john_funk (1003) follows
+(1003, 1001),
+
+-- demo1 (1111) follows
+(1111, 1001),
+(1111, 1002);
+
+-- ======================================
+-- User Stats
+-- ======================================
+INSERT INTO user_stats (user_id, posts_count, followers_count, following_count) VALUES
+(0, 5, 2, 3), -- root
+(1001, 5, 3, 3), -- stacy.up: 3 followers, 3 following
+(1002, 2, 2, 2), -- kristina_23: 2 followers, 2 following
+(1003, 1, 2, 1), -- john_funk: 2 followers, 1 following
+(1111, 5, 1, 2); -- demo1: 1 follower, 2 following

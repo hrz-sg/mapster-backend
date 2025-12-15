@@ -1,5 +1,7 @@
 use crate::ctx::Ctx;
 use crate::model::base::{self, DbBmc};
+use crate::model::post_media::PostMedia;
+use crate::model::user::UserForPreview;
 use crate::model::{ModelManager, Result};
 use modql::field::Fields;
 use modql::filter::{FilterNodes, ListOptions, OpValsBool, OpValsInt64, OpValsString};
@@ -22,6 +24,44 @@ pub struct Post {
     pub comment_count: i64,
     pub saved_count: i64,
     pub has_video: bool,
+}
+
+/// DTO Post Details
+#[derive(Debug, Serialize)]
+pub struct PostForDetail {
+    pub id: i64,
+    pub title: String,
+    pub description: String,
+    pub author: UserForPreview,
+    pub thumbnail_url: Option<String>,
+    pub medias: Vec<PostMedia>,
+    pub like_count: i64,
+    pub comment_count: i64,
+    pub saved_count: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PostFeedItem {
+    pub id: i64,
+    pub title: String,
+    pub author: UserForPreview,
+    pub thumbnail_url: Option<String>,
+    pub media_count: i32,
+    pub has_video: bool,
+    pub like_count: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PostDetail {
+    pub id: i64,
+    pub title: String,
+    pub description: String,
+    pub author: UserForPreview,
+    pub thumbnail_url: Option<String>,
+    pub medias: Vec<PostMedia>,
+    pub like_count: i64,
+    pub comment_count: i64,
+    pub saved_count: i64,
 }
 
 #[derive(Fields, Deserialize)]
@@ -53,6 +93,19 @@ pub struct PostFilter {
     is_published: Option<OpValsBool>,
     has_video: Option<OpValsBool>,
     media_count: Option<OpValsInt64>,
+}
+
+impl PostFilter {
+    pub fn by_user(user_id: i64) -> Self {
+        Self {
+            user_id: Some(user_id.into()),
+            id: None,
+            title: None,
+            is_published: None,
+            has_video: None,
+            media_count: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, FromRow)]

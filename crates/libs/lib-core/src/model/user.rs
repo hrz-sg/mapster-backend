@@ -8,7 +8,9 @@ use chrono::Utc;
 use lib_auth::auth_config;
 use lib_auth::pwd::{self, ContentToHash};
 use lib_tmail::email::emails_sender::{
-    send_reset_pwd_email, send_verification_email, send_welcome_email,
+    send_reset_pwd_email, 
+    send_verification_email, 
+    send_welcome_email,
 };
 use lib_tmail::tmail_config;
 use modql::field::{Fields, HasSeaFields, SeaField, SeaFields};
@@ -51,6 +53,16 @@ pub struct UserForPreview {
     pub id: i64,
     pub username: String,
     pub avatar_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Fields, FromRow, Serialize)]
+pub struct UserProfileDetails {
+    pub id: i64,
+    pub username: String,
+    pub avatar_url: Option<String>,
+
+    pub bio: Option<String>,
+    pub location: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -105,10 +117,12 @@ impl UserBy for UserForPreview {}
 // Note: Since the entity properties Iden will be given by modql
 //       UserIden does not have to be exhaustive, but just have the columns
 #[derive(Iden)]
-enum UserIden {
+pub(in crate::model) enum UserIden {
     Id,
     Username,
     AvatarUrl,
+    Bio,
+    Location,
     Email,
     Pwd,
     EmailVerified,
@@ -222,7 +236,7 @@ impl UserBmc {
         _ctx: &Ctx,
         mm: &ModelManager,
         id: i64,
-    ) -> Result<Option<UserForPreview>> {
+    ) -> Result<UserForPreview> {
 
         let mut query = Query::select();
         query
@@ -235,7 +249,31 @@ impl UserBmc {
         let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
         let sqlx_query = sqlx::query_as_with::<_, UserForPreview, _>(&sql, values);
 
-        let entity = mm.dbx().fetch_optional(sqlx_query).await?;
+        let entity = mm.dbx().fetch_one(sqlx_query).await?;
+        Ok(entity)
+    }
+
+    pub async fn get_profile_details(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        id: i64,
+    ) -> Result<UserProfileDetails> {
+
+        let mut query = Query::select();
+        query
+            .from(Self::table_ref())
+            .expr_as(Expr::col(UserIden::Id), "id")
+            .expr_as(Expr::col(UserIden::Username), "username")
+            .expr_as(Expr::col(UserIden::AvatarUrl), "avatar_url")
+            .expr_as(Expr::col(UserIden::Bio), "bio")
+            .expr_as(Expr::col(UserIden::Location), "location")
+            .and_where(Expr::col(UserIden::Id).eq(id));
+
+        let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
+        let sqlx_query =
+            sqlx::query_as_with::<_, UserProfileDetails, _>(&sql, values);
+
+        let entity = mm.dbx().fetch_one(sqlx_query).await?;
         Ok(entity)
     }
 

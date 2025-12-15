@@ -45,7 +45,6 @@ impl<S: Storage> PostMediaService<S> {
                 file_size: Some(data.len() as i64),
                 duration: None,
                 sort_order,
-                alt_text: None,
             },
         )
         .await

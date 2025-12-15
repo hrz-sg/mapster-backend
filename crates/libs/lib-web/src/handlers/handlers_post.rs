@@ -4,8 +4,7 @@ use axum::{
     extract::{Multipart, Path, State},
 };
 use lib_core::{
-    ctx::Ctx, dto::post_dto::{PostDetailDto, PostFeedItemDto}, 
-    model::ModelManager, 
+    ctx::Ctx, model::{ModelManager, post::{PostFeedItem, PostForDetail}}, 
     service::post::{CreatePostPayload, PostService, UpdatePostPayload}
 };
 use serde::Serialize;
@@ -206,13 +205,13 @@ pub struct DeletePostResponse {
 #[derive(Debug, Serialize)]
 pub struct ListPostsResponse {
     pub success: bool,
-    pub posts: Vec<PostFeedItemDto>,
+    pub posts: Vec<PostFeedItem>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct GetPostResponse {
     pub success: bool,
-    pub post: PostDetailDto,
+    pub post: PostForDetail,
 }
 
 #[derive(Debug, Serialize)]

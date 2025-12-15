@@ -9,6 +9,8 @@ CREATE TABLE "user" (
     username VARCHAR(128) NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL UNIQUE,
     avatar_url TEXT,
+    bio TEXT,
+    location TEXT,
 
     -- Auth
     pwd VARCHAR(256),
@@ -29,6 +31,23 @@ CREATE TABLE "user" (
     ctime TIMESTAMPTZ NOT NULL DEFAULT now(),
     mid BIGINT NOT NULL REFERENCES "user"(id),
     mtime TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Followers & Followings
+CREATE TABLE user_follow (
+    follower_id BIGINT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    following_id BIGINT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    PRIMARY KEY (follower_id, following_id)
+);
+
+-- Stats
+CREATE TABLE user_stats (
+    user_id BIGINT PRIMARY KEY REFERENCES "user"(id) ON DELETE CASCADE,
+    posts_count BIGINT NOT NULL DEFAULT 0,
+    followers_count BIGINT NOT NULL DEFAULT 0,
+    following_count BIGINT NOT NULL DEFAULT 0
 );
 
 -- Post
@@ -55,7 +74,7 @@ CREATE TABLE post (
     -- Audit fields
     cid BIGINT NOT NULL REFERENCES "user"(id),
     ctime TIMESTAMPTZ NOT NULL DEFAULT now(),
-    mid BIGINT NOT NULL REFERENCES "user"(id), 
+    mid BIGINT NOT NULL REFERENCES "user"(id),
     mtime TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -73,7 +92,6 @@ CREATE TABLE post_media (
     file_size BIGINT,
     duration INT,                          -- seconds for video
     sort_order INT NOT NULL DEFAULT 0,
-    alt_text TEXT,
 
     -- Audit fields
     cid BIGINT NOT NULL REFERENCES "user"(id),

@@ -1,8 +1,8 @@
 use crate::ctx::Ctx;
 use crate::model::base::{self, DbBmc};
 use crate::model::{ModelManager, Result};
-use modql::field::{Fields, HasSeaFields};
-use modql::filter::{FilterNodes, ListOptions, OpValsInt64, OpValsString};
+use modql::field::Fields;
+use modql::filter::{FilterNodes, ListOptions, OpValInt64, OpValsInt64, OpValsString};
 use sea_query::{Expr, Iden, PostgresQueryBuilder, Query};
 use sea_query_binder::SqlxBinder;
 use serde::{Deserialize, Serialize};
@@ -30,7 +30,6 @@ pub struct PostMediaForCreate {
     pub file_size: Option<i64>,
     pub duration: Option<i32>,
     pub sort_order: i32,
-    pub alt_text: Option<String>,
 }
 
 #[derive(Fields, Default, Deserialize)]
@@ -92,24 +91,23 @@ impl PostMediaBmc {
     }
 
     pub async fn list_by_post(
-        _ctx: &Ctx,
+        ctx: &Ctx,
         mm: &ModelManager,
         post_id: i64,
     ) -> Result<Vec<PostMedia>> {
 
         // -- Build query
-        let mut query = Query::select();
-        query
-            .from(Self::table_ref())
-            .columns(PostMedia::sea_column_refs())
-            .and_where(Expr::col(PostMediaIden::PostId).eq(post_id));
+        let filter = PostMediaFilter {
+            post_id: Some(OpValsInt64(vec![OpValInt64::Eq(post_id)])),
+            ..Default::default()
+        };
 
-        // -- Execute query
-        let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
-        let sqlx_query = sqlx::query_as_with::<_, PostMedia, _>(&sql, values);
-        let medias = mm.dbx().fetch_all(sqlx_query).await?;
-
-        Ok(medias)
+        base::list::<Self, _, _>(
+            ctx,
+            mm,
+            Some(vec![filter]),
+            None
+        ).await
     }
 
     pub async fn update(
