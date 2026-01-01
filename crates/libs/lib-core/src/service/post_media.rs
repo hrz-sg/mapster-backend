@@ -23,11 +23,11 @@ impl<S: Storage> PostMediaService<S> {
         &self,
         ctx: &Ctx,
         mm: &ModelManager,
-        post_id: i64,
+        post_id: &str,
         filename: &str,
         data: &[u8],
         sort_order: i32,
-    ) -> Result<i64> {
+    ) -> Result<String> {
         let (mime, media_type) = validate_file(filename, data)?;
 
         let media_url = self.storage.upload(filename, data, &mime).await?;
@@ -36,7 +36,7 @@ impl<S: Storage> PostMediaService<S> {
             ctx,
             mm,
             PostMediaForCreate {
-                post_id,
+                post_id: post_id.to_string(),
                 media_url,
                 media_type,
                 mime_type: mime,
@@ -54,8 +54,8 @@ impl<S: Storage> PostMediaService<S> {
         &self,
         ctx: &Ctx,
         mm: &ModelManager,
-        media_id: i64,
-        post_id: i64,
+        media_id: &str,
+        post_id: &str,
         filename: &str,
         data: &[u8],
     ) -> Result<()> {
@@ -87,24 +87,24 @@ impl<S: Storage> PostMediaService<S> {
         .await
     }
 
-    pub async fn delete_many(&self, ctx: &Ctx, mm: &ModelManager, ids: &[i64]) -> Result<()> {
-        for &id in ids {
-            self.delete_media(ctx, mm, id).await?;
+    pub async fn delete_many(&self, ctx: &Ctx, mm: &ModelManager, ids: &[String]) -> Result<()> {
+        for id in ids {
+            self.delete_media(ctx, mm, &id).await?;
         }
         Ok(())
     }
 
-    pub async fn delete_media(&self, ctx: &Ctx, mm: &ModelManager, media_id: i64) -> Result<()> {
+    pub async fn delete_media(&self, ctx: &Ctx, mm: &ModelManager, media_id: &str) -> Result<()> {
         let media = PostMediaBmc::get(ctx, mm, media_id).await?;
         self.storage.delete_by_url(&media.media_url).await?;
         PostMediaBmc::delete(ctx, mm, media_id).await
     }
 
-    pub async fn list_by_post(&self, ctx: &Ctx, mm: &ModelManager, post_id: i64) -> Result<Vec<PostMedia>> {
+    pub async fn list_by_post(&self, ctx: &Ctx, mm: &ModelManager, post_id: &str) -> Result<Vec<PostMedia>> {
         PostMediaBmc::list_by_post(ctx, mm, post_id).await
     }
 
-    pub async fn next_sort(ctx: &Ctx, mm: &ModelManager, post_id: i64) -> Result<i32> {
+    pub async fn next_sort(ctx: &Ctx, mm: &ModelManager, post_id: &str) -> Result<i32> {
         let medias = PostMediaBmc::list_by_post(ctx, mm, post_id).await?;
         Ok(medias.iter().map(|m| m.sort_order).max().unwrap_or(-1) + 1)
     }

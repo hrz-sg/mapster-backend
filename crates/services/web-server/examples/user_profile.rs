@@ -37,7 +37,7 @@ async fn main() -> Result<()> {
     // --- Get other user profile
     println!("\n--- Getting OTHER user profile ---");
     let my_resp = client
-        .get(&format!("{}/api/profile/{}", BASE_URL, 1111))
+        .get(&format!("{}/api/profile/{}", BASE_URL, "usr_demo10000000000000000"))
         .send()
         .await?;
 

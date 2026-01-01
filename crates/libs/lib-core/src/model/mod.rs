@@ -7,6 +7,8 @@ mod store;
 
 pub mod post;
 pub mod post_media;
+pub mod post_like;
+pub mod post_comment;
 pub mod user;
 pub mod user_stats;
 pub mod user_follow;

@@ -16,7 +16,7 @@ macro_rules! generate_common_bmc_fns {
 					ctx: &Ctx,
 					mm: &ModelManager,
 					entity_c: $for_create,
-				) -> Result<i64> {
+				) -> Result<String> {
 					base::create::<Self, _>(ctx, mm, entity_c).await
 				}
 
@@ -24,7 +24,7 @@ macro_rules! generate_common_bmc_fns {
 					ctx: &Ctx,
 					mm: &ModelManager,
 					entity_c: Vec<$for_create>,
-				) -> Result<Vec<i64>> {
+				) -> Result<Vec<String>> {
 					base::create_many::<Self, _>(ctx, mm, entity_c).await
 				}
 			)?
@@ -32,7 +32,7 @@ macro_rules! generate_common_bmc_fns {
 				pub async fn get(
 					ctx: &Ctx,
 					mm: &ModelManager,
-					id: i64,
+					id: &str,
 				) -> Result<$entity> {
 					base::get::<Self, _>(ctx, mm, id).await
 				}
@@ -69,7 +69,7 @@ macro_rules! generate_common_bmc_fns {
 				pub async fn update(
 					ctx: &Ctx,
 					mm: &ModelManager,
-					id: i64,
+					id: &str,
 					entity_u: $for_update,
 				) -> Result<()> {
 					base::update::<Self, _>(ctx, mm, id, entity_u).await
@@ -79,7 +79,7 @@ macro_rules! generate_common_bmc_fns {
 				pub async fn delete(
 					ctx: &Ctx,
 					mm: &ModelManager,
-					id: i64,
+					id: &str,
 				) -> Result<()> {
 					base::delete::<Self>(ctx, mm, id).await
 				}
@@ -87,7 +87,7 @@ macro_rules! generate_common_bmc_fns {
 				pub async fn delete_many(
 					ctx: &Ctx,
 					mm: &ModelManager,
-					ids: Vec<i64>,
+					ids: Vec<&str>,
 				) -> Result<u64> {
 					base::delete_many::<Self>(ctx, mm, ids).await
 				}

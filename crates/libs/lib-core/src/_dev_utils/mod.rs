@@ -54,7 +54,7 @@ pub async fn seed_posts(
             ctx,
             mm,
             PostForCreate {
-                user_id: ctx.user_id(),
+                user_id: ctx.user_id().to_string(),
                 title: title.to_string(),
                 description: description.to_string(),
                 is_published: None,
@@ -66,7 +66,7 @@ pub async fn seed_posts(
         )
         .await?;
 
-        let post = PostBmc::get(ctx, mm, id).await?;
+        let post = PostBmc::get(ctx, mm, &id).await?;
         posts.push(post);
     }
 

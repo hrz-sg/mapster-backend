@@ -42,7 +42,7 @@ async fn main() -> Result<()> {
     let response = client
         .post(&format!("{}/api/login", BASE_URL))
         .json(&json!({
-            "username": "demo1",
+            "username": "demo0",
             "pwd": "welcome"
         }))
         .send()

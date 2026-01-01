@@ -11,13 +11,13 @@ use tracing::debug;
 
 pub async fn api_get_user_profile_by_id(
     State(mm): State<ModelManager>,
-    Path(user_id): Path<i64>,
+    Path(user_id): Path<String>,
     // ctx: &Ctx,
 ) -> Result<Json<GetUserProfileResponse>> {
     debug!("{:<12} - api_get_user_profile_handler", "HANDLER");
 
     let ctx = Ctx::root_ctx();
-    let profile = UserProfileService::get_user_profile(&ctx, &mm, user_id).await?;
+    let profile = UserProfileService::get_user_profile(&ctx, &mm, &user_id).await?;
 
     Ok(Json(GetUserProfileResponse {
         success: true,

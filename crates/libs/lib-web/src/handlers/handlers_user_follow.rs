@@ -52,14 +52,14 @@ pub async fn api_get_my_followings(
 
 pub async fn api_get_user_followers(
     State(mm): State<ModelManager>,
-    Path(user_id): Path<i64>,
+    Path(user_id): Path<String>,
 ) -> Result<Json<FollowListResponse>> {
     debug!("{:<12} - api_get_user_followers", "HANDLER");
 
     let ctx = Ctx::root_ctx();
 
     let result =
-        UserFollowService::list_followers(&ctx, &mm, Some(user_id)).await?;
+        UserFollowService::list_followers(&ctx, &mm, Some(&user_id)).await?;
 
     Ok(Json(FollowListResponse {
         success: true,
@@ -70,14 +70,14 @@ pub async fn api_get_user_followers(
 
 pub async fn api_get_user_followings(
     State(mm): State<ModelManager>,
-    Path(user_id): Path<i64>,
+    Path(user_id): Path<String>,
 ) -> Result<Json<FollowListResponse>> {
     debug!("{:<12} - api_get_user_followings", "HANDLER");
 
     let ctx = Ctx::root_ctx();
 
     let result =
-        UserFollowService::list_followings(&ctx, &mm, Some(user_id)).await?;
+        UserFollowService::list_followings(&ctx, &mm, Some(&user_id)).await?;
 
     Ok(Json(FollowListResponse {
         success: true,

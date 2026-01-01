@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::vec::Vec;
 use crate::ctx::Ctx;
-use crate::model::post::{PostFeedItem, PostFilter, PostForDetail};
+use crate::model::post::{PostFeedItem, PostFilter, PostDetail};
 use crate::model::user::{User, UserBmc, UserForPreview};
 use crate::model::{
     Result, ModelManager,
@@ -21,7 +21,7 @@ impl PostService {
         ctx: &Ctx,
         mm: &ModelManager,
         payload: CreatePostPayload,
-    ) -> Result<i64> {
+    ) -> Result<String> {
         let CreatePostPayload {
             title,
             description,
@@ -87,7 +87,7 @@ impl PostService {
             ctx,
             &mm_txn,
             PostForCreate {
-                user_id: ctx.user_id(),
+                user_id: ctx.user_id().to_string(),
                 title,
                 description,
                 is_published: Some(true),
@@ -105,7 +105,7 @@ impl PostService {
                 ctx,
                 &mm_txn, 
                 PostMediaForCreate {
-                    post_id,
+                    post_id: post_id.clone(),
                     media_url: url,
                     media_type,
                     mime_type: mime,
@@ -127,19 +127,19 @@ impl PostService {
     pub async fn get_post_detail_by_id(
         ctx: &Ctx,
         mm: &ModelManager,
-        post_id: i64,
-    ) -> Result<PostForDetail> {
+        post_id: &str,
+    ) -> Result<PostDetail> {
         // -- Get the post itself
         let post = PostBmc::get(ctx, mm, post_id).await?;
 
         // -- Get Post author
-        let user: User = UserBmc::get(ctx, mm, post.user_id).await?;
+        let user: User = UserBmc::get(ctx, mm, &post.user_id).await?;
 
         // -- Get all Post Medias
         let medias = PostMediaBmc::list_by_post(ctx, mm, post_id).await?;
 
-        // -- Create and send PostForDetail
-        Ok(PostForDetail {
+        // -- Create and send PostDetail
+        Ok(PostDetail {
             id: post.id,
             title: post.title,
             description: post.description,
@@ -162,11 +162,13 @@ impl PostService {
         mm: &ModelManager
     ) -> Result<Vec<PostFeedItem>> {
         let posts = PostBmc::list(ctx, mm, None, None).await?;
-        let user_ids: Vec<i64> = posts.iter().map(|p| p.user_id).collect();
+        let user_ids: Vec<String> = posts.iter().map(|p| p.user_id.clone()).collect();
 
         let users = UserBmc::list_by_ids(ctx, mm, &user_ids).await?;
-        let user_map: HashMap<i64, UserForPreview> =
-            users.into_iter().map(|u| (u.id, u)).collect();
+        let user_map: HashMap<String, UserForPreview> = users 
+            .into_iter()
+            .map(|u| (u.id.clone(), u))
+            .collect();
 
         let feed = posts
             .into_iter()
@@ -174,12 +176,12 @@ impl PostService {
                 let user = user_map.get(&post.user_id);
                 let author = user.map_or(
                     UserForPreview {
-                        id: 0,
+                        id: post.user_id,
                         username: "Unknown".into(),
                         avatar_url: None,
                     },
                     |u| UserForPreview {
-                        id: u.id,
+                        id: u.id.clone(),
                         username: u.username.clone(),
                         avatar_url: u.avatar_url.clone(),
                     },
@@ -204,7 +206,7 @@ impl PostService {
     pub async fn list_user_posts(
     ctx: &Ctx,
     mm: &ModelManager,
-    user_id: i64,
+    user_id: &str,
 ) -> Result<Vec<PostFeedItem>> {
 
         // -- Create filters
@@ -214,21 +216,23 @@ impl PostService {
         let posts = PostBmc::list(ctx, mm, Some(filters), None).await?;
 
         // -- Get User data
-        let users = UserBmc::list_by_ids(ctx, mm, &[user_id]).await?;
-        let user_map: HashMap<i64, UserForPreview> =
-            users.into_iter().map(|u| (u.id, u)).collect();
+        let users = UserBmc::list_by_ids(ctx, mm, &[user_id.to_string()]).await?;
+        let user_map: HashMap<String, UserForPreview> = users
+            .into_iter()
+            .map(|u| (u.id.clone(), u))  
+            .collect();
 
         // -- Create DTO
         let feed = posts.into_iter().map(|post| {
             let user = user_map.get(&post.user_id);
             let author = user.map_or(
                 UserForPreview {
-                    id: 0,
+                    id: post.user_id,
                     username: "Unknown".into(),
                     avatar_url: None,
                 },
                 |u| UserForPreview {
-                    id: u.id,
+                    id: u.id.clone(),
                     username: u.username.clone(),
                     avatar_url: u.avatar_url.clone(),
                 },
@@ -252,7 +256,7 @@ impl PostService {
     pub async fn update_with_media(
         ctx: &Ctx,
         mm: &ModelManager,
-        post_id: i64,
+        post_id: &str,
         payload: UpdatePostPayload,
     ) -> Result<()> {
         let mm_txn = mm.new_with_txn()?;
@@ -267,7 +271,7 @@ impl PostService {
 
         if let Some(update_files) = &payload.update_files {
             for (id, name, data) in update_files {
-                media_svc.replace_media(ctx, &mm_txn, *id, post_id, name, data).await?;
+                media_svc.replace_media(ctx, &mm_txn, &id, post_id, name, data).await?;
             }
         }
 
@@ -286,7 +290,7 @@ impl PostService {
     pub async fn delete(
         ctx: &Ctx, 
         mm: &ModelManager, 
-        id: i64
+        id: &str
     ) -> Result<()> {
         let mm_txn = mm.new_with_txn()?;
         let dbx = mm_txn.dbx();
@@ -297,14 +301,13 @@ impl PostService {
         let medias = media_svc.list_by_post(ctx, &mm_txn, id).await?;
 
         for media in medias {
-            media_svc.delete_media(ctx, &mm_txn, media.id).await?;
+            media_svc.delete_media(ctx, &mm_txn, &media.id).await?;
         }
 
         PostBmc::delete(ctx, &mm_txn, id).await?;
         dbx.commit_txn().await?;
         Ok(())
     }
-
 }
 
 #[derive(Debug)]
@@ -313,9 +316,9 @@ pub struct UpdatePostPayload {
     pub description: Option<String>,
     pub is_published: Option<bool>,
     pub add_files: Option<Vec<(String, Vec<u8>)>>,  
-    pub update_files: Option<Vec<(i64, String, Vec<u8>)>>, 
-    pub remove_ids: Option<Vec<i64>>,                
-    pub new_cover_id: Option<i64>,                   
+    pub update_files: Option<Vec<(String, String, Vec<u8>)>>, 
+    pub remove_ids: Option<Vec<String>>,                
+    pub new_cover_id: Option<String>,                   
 }
 
 #[derive(Debug)]

@@ -1,4 +1,4 @@
-use crate::model::user::{UserBmc, UserForPreview, UserIden};
+use crate::model::user::{UserBmc, UserForPreview, UserPublicIden};
 use crate::{ctx::Ctx, model::ModelManager};
 use crate::model::base::DbBmc;
 use crate::model::Result;
@@ -15,44 +15,49 @@ enum UserFollowIden {
 
 impl DbBmc for UserFollowBmc {
     const TABLE: &'static str = "user_follow";
+
+    fn has_id() -> bool {
+        false
+    }
 }
 
 impl UserFollowBmc {
     pub async fn is_following(
         _ctx: &Ctx,
         mm: &ModelManager,
-        follower_id: i64,
-        following_id: i64,
+        follower_id: &str,
+        following_id: &str,
     ) -> Result<bool> {
 
         let mut query = Query::select();
         query
-            .expr(Expr::col(UserFollowIden::FollowerId).count())
+            .expr(Expr::val(1))
             .from(Self::table_ref())
             .and_where(Expr::col(UserFollowIden::FollowerId).eq(follower_id))
-            .and_where(Expr::col(UserFollowIden::FollowingId).eq(following_id));
+            .and_where(Expr::col(UserFollowIden::FollowingId).eq(following_id))
+            .limit(1);
 
         let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
-        let sqlx_query = sqlx::query_as_with::<_, (i64,), _>(&sql, values);
-        let result = mm.dbx().fetch_one(sqlx_query).await?;
+        let sqlx_query = sqlx::query_as_with::<_, (i32,), _>(&sql, values);
+        let result = mm.dbx().fetch_optional(sqlx_query).await?;
 
-        Ok(result.0 > 0)
+        Ok(result.is_some())
     }
 
     pub async fn list_followers(
         _ctx: &Ctx,
         mm: &ModelManager,
-        user_id: i64,
+        user_id: &str,
     ) -> Result<Vec<UserForPreview>> {
         
         let mut query = Query::select();
         
         query
-            .columns([UserIden::Id, UserIden::Username, UserIden::AvatarUrl])
+            .columns([UserPublicIden::Id, UserPublicIden::Username, UserPublicIden::AvatarUrl])
             .from(UserBmc::table_ref())
             .inner_join(
                 Self::table_ref(),
-                Expr::col(UserIden::Id)
+                Expr::col(UserPublicIden::Id)
                     .equals(UserFollowIden::FollowerId)
             )
             .and_where(
@@ -69,17 +74,17 @@ impl UserFollowBmc {
     pub async fn list_followings(
         _ctx: &Ctx,
         mm: &ModelManager,
-        user_id: i64,
+        user_id: &str,
     ) -> Result<Vec<UserForPreview>> {
         
         let mut query = Query::select();
         
         query
-            .columns([UserIden::Id, UserIden::Username, UserIden::AvatarUrl])
+            .columns([UserPublicIden::Id, UserPublicIden::Username, UserPublicIden::AvatarUrl])
             .from(UserBmc::table_ref())
             .inner_join(
                 Self::table_ref(),
-                Expr::col(UserIden::Id)
+                Expr::col(UserPublicIden::Id)
                     .equals(UserFollowIden::FollowingId)
             )
             .and_where(
@@ -97,7 +102,7 @@ impl UserFollowBmc {
     pub async fn count_follows(
         _ctx: &Ctx,
         mm: &ModelManager,
-        user_id: i64,
+        user_id: &str,
     ) -> Result<i64> {
 
         let mut query = Query::select();
@@ -118,9 +123,9 @@ impl UserFollowBmc {
     pub async fn follow_relations(
         _ctx: &Ctx,
         mm: &ModelManager,
-        viewer_id: i64,
-        target_user_ids: &[i64],
-    ) -> Result<Vec<(i64, i64)>> {
+        viewer_id: &str,
+        target_user_ids: &[&str],
+    ) -> Result<Vec<(String, String)>> {
 
         if target_user_ids.is_empty() {
             return Ok(vec![]);
@@ -156,7 +161,7 @@ impl UserFollowBmc {
 
         let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
         let sqlx_query =
-            sqlx::query_as_with::<_, (i64, i64), _>(&sql, values);
+            sqlx::query_as_with::<_, (String, String), _>(&sql, values);
 
         let result = mm.dbx().fetch_all(sqlx_query).await?;
         Ok(result)

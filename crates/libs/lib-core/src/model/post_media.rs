@@ -2,7 +2,7 @@ use crate::ctx::Ctx;
 use crate::model::base::{self, DbBmc};
 use crate::model::{ModelManager, Result};
 use modql::field::Fields;
-use modql::filter::{FilterNodes, ListOptions, OpValInt64, OpValsInt64, OpValsString};
+use modql::filter::{FilterNodes, ListOptions, OpValString, OpValsInt64, OpValsString};
 use sea_query::{Expr, Iden, PostgresQueryBuilder, Query};
 use sea_query_binder::SqlxBinder;
 use serde::{Deserialize, Serialize};
@@ -11,8 +11,8 @@ use sqlx::FromRow;
 // region: --- PostMedia Types
 #[derive(Debug, Clone, Fields, FromRow, Serialize, Deserialize)]
 pub struct PostMedia {
-    pub id: i64,
-    pub post_id: i64,
+    pub id: String,
+    pub post_id: String,
     pub media_url: String,
     pub media_type: String, // "image" or "video"
     pub mime_type: String,
@@ -21,7 +21,7 @@ pub struct PostMedia {
 
 #[derive(Fields, Deserialize)]
 pub struct PostMediaForCreate {
-    pub post_id: i64,
+    pub post_id: String,
     pub media_url: String,
     pub media_type: String,
     pub mime_type: String,
@@ -47,8 +47,8 @@ pub struct PostMediaForUpdate {
 
 #[derive(FilterNodes, Deserialize, Default, Debug)]
 pub struct PostMediaFilter {
-    id: Option<OpValsInt64>,
-    post_id: Option<OpValsInt64>,
+    id: Option<OpValsString>,
+    post_id: Option<OpValsString>,
     media_type: Option<OpValsString>,
     mime_type: Option<OpValsString>,
     sort_order: Option<OpValsInt64>,
@@ -73,11 +73,11 @@ impl PostMediaBmc {
         ctx: &Ctx,
         mm: &ModelManager,
         post_media_c: PostMediaForCreate,
-    ) -> Result<i64> {
+    ) -> Result<String> {
         base::create::<Self, _>(ctx, mm, post_media_c).await
     }
 
-    pub async fn get(ctx: &Ctx, mm: &ModelManager, id: i64) -> Result<PostMedia> {
+    pub async fn get(ctx: &Ctx, mm: &ModelManager, id: &str) -> Result<PostMedia> {
         base::get::<Self, _>(ctx, mm, id).await
     }
 
@@ -93,12 +93,12 @@ impl PostMediaBmc {
     pub async fn list_by_post(
         ctx: &Ctx,
         mm: &ModelManager,
-        post_id: i64,
+        post_id: &str,
     ) -> Result<Vec<PostMedia>> {
 
         // -- Build query
         let filter = PostMediaFilter {
-            post_id: Some(OpValsInt64(vec![OpValInt64::Eq(post_id)])),
+            post_id: Some(OpValsString(vec![OpValString::Eq(post_id.to_string())])),
             ..Default::default()
         };
 
@@ -113,17 +113,17 @@ impl PostMediaBmc {
     pub async fn update(
         ctx: &Ctx,
         mm: &ModelManager,
-        id: i64,
+        id: &str,
         post_media_u: PostMediaForUpdate,
     ) -> Result<()> {
         base::update::<Self, _>(ctx, mm, id, post_media_u).await
     }
 
-    pub async fn delete(ctx: &Ctx, mm: &ModelManager, id: i64) -> Result<()> {
+    pub async fn delete(ctx: &Ctx, mm: &ModelManager, id: &str) -> Result<()> {
         base::delete::<Self>(ctx, mm, id).await
     }
 
-    pub async fn delete_by_post(_ctx: &Ctx, mm: &ModelManager, post_id: i64) -> Result<()> {
+    pub async fn delete_by_post(_ctx: &Ctx, mm: &ModelManager, post_id: &str) -> Result<()> {
         // -- Build query
         let mut query = Query::delete();
         query

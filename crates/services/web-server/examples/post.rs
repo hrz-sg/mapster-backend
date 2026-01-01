@@ -74,7 +74,7 @@ async fn main() -> Result<()> {
 
      // Get post_id for futher tests
     let post_id = create_post_json["id"]
-        .as_i64()
+        .as_str()
         .expect("Missing 'id' in create response");
     println!("Created post ID: {}\n", post_id);
     println!("\nPost upload test completed successfully!");

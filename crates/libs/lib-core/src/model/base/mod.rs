@@ -3,6 +3,7 @@
 mod crud_fns;
 mod macros;
 mod utils;
+mod ids;
 
 // -- Flatten hierarchy for user code.
 pub use crud_fns::*;
@@ -66,5 +67,9 @@ pub trait DbBmc {
     /// default: false
     fn has_owner_id() -> bool {
         false
+    }
+
+    fn has_id() -> bool { 
+        true
     }
 }

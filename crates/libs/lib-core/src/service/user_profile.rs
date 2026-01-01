@@ -25,7 +25,7 @@ impl UserProfileService {
     pub async fn get_user_profile(
         ctx: &Ctx,
         mm: &ModelManager,
-        user_id: i64,
+        user_id: &str,
     ) -> Result<UserProfile> {
 
         let viewer_id = ctx.user_id();
@@ -38,7 +38,7 @@ impl UserProfileService {
         // -- Get stats
         let stats = UserStatsService::get_by_user_id(ctx, mm, user_id).await?;
 
-        // -- Get posts
+        // // -- Get posts
         let posts = if is_my_profile {
             PostService::list_user_posts(ctx, mm, viewer_id).await?
         } else {

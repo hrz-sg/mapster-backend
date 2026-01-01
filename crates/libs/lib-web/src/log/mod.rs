@@ -41,7 +41,8 @@ pub async fn log_request(
         http_path: uri.to_string(),
         http_method: http_method.to_string(),
 
-        user_id: ctx.map(|c| c.user_id()),
+        // Convert &str to String
+        user_id: ctx.map(|c| c.user_id().to_string()),
 
         client_error_type: client_error.map(|e| e.as_ref().to_string()),
 
@@ -65,7 +66,7 @@ struct RequestLogLine {
     duration_ms: f64,
 
     // -- User and context attributes.
-    user_id: Option<i64>,
+    user_id: Option<String>,
 
     // -- http request attributes.
     http_path: String,

@@ -15,7 +15,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 pub enum Error {
     EntityNotFound {
         entity: &'static str,
-        id: i64,
+        id: String,
     },
     ListLimitOverMax {
         max: i64,
@@ -23,6 +23,12 @@ pub enum Error {
     },
 
     CountFail,
+
+    // -- ID errors
+    InvalidUserIdFormat(String),
+    InvalidIdFormat(String),
+    InvalidIdPrefixLength(String),
+    InvalidIdPrefixFormat(String),
 
     // -- DB
     UserAlreadyExists {
@@ -38,6 +44,10 @@ pub enum Error {
     PasswordMismatch(String),
     ResetTokenInvalid,
     ResetTokenExpired,
+
+    // -- Permission 
+    PermissionDenied(String),
+    NotEntityOwner(String),
 
     // -- ModelManager
     CantCreateModelManagerProvider(String),

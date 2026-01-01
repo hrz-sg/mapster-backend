@@ -12,8 +12,8 @@ use sqlx::FromRow;
 
 #[derive(Debug, Clone, Fields, FromRow, Serialize)]
 pub struct Post {
-    pub id: i64,
-    pub user_id: i64,
+    pub id: String,
+    pub user_id: String,
     pub title: String,
     pub description: String,
     pub is_published: bool,
@@ -26,23 +26,9 @@ pub struct Post {
     pub has_video: bool,
 }
 
-/// DTO Post Details
-#[derive(Debug, Serialize)]
-pub struct PostForDetail {
-    pub id: i64,
-    pub title: String,
-    pub description: String,
-    pub author: UserForPreview,
-    pub thumbnail_url: Option<String>,
-    pub medias: Vec<PostMedia>,
-    pub like_count: i64,
-    pub comment_count: i64,
-    pub saved_count: i64,
-}
-
 #[derive(Debug, Serialize)]
 pub struct PostFeedItem {
-    pub id: i64,
+    pub id: String,
     pub title: String,
     pub author: UserForPreview,
     pub thumbnail_url: Option<String>,
@@ -53,7 +39,7 @@ pub struct PostFeedItem {
 
 #[derive(Debug, Serialize)]
 pub struct PostDetail {
-    pub id: i64,
+    pub id: String,
     pub title: String,
     pub description: String,
     pub author: UserForPreview,
@@ -66,7 +52,7 @@ pub struct PostDetail {
 
 #[derive(Fields, Deserialize)]
 pub struct PostForCreate {
-    pub user_id: i64,
+    pub user_id: String,
     pub title: String,
     pub description: String,
     pub is_published: Option<bool>,
@@ -87,8 +73,8 @@ pub struct PostForUpdate {
 
 #[derive(FilterNodes, Deserialize, Default, Debug)]
 pub struct PostFilter {
-    id: Option<OpValsInt64>,
-    user_id: Option<OpValsInt64>,
+    id: Option<OpValsString>,
+    user_id: Option<OpValsString>,
     title: Option<OpValsString>,
     is_published: Option<OpValsBool>,
     has_video: Option<OpValsBool>,
@@ -96,7 +82,7 @@ pub struct PostFilter {
 }
 
 impl PostFilter {
-    pub fn by_user(user_id: i64) -> Self {
+    pub fn by_user(user_id: &str) -> Self {
         Self {
             user_id: Some(user_id.into()),
             id: None,
@@ -110,7 +96,7 @@ impl PostFilter {
 
 #[derive(Debug, Clone, FromRow)]
 pub struct PostWithUser {
-    pub id: i64,
+    pub id: String,
     pub title: String,
     pub thumbnail_url: Option<String>,
     pub media_count: i32,
@@ -118,7 +104,7 @@ pub struct PostWithUser {
     pub like_count: i64,
     pub comment_count: i64,
     pub saved_count: i64,
-    pub user_id: i64,
+    pub user_id: String,
     pub username: String,
     pub avatar_url: Option<String>,
 }
@@ -132,11 +118,11 @@ impl DbBmc for PostBmc {
 }
 
 impl PostBmc {
-    pub async fn create(ctx: &Ctx, mm: &ModelManager, post_c: PostForCreate) -> Result<i64> {
+    pub async fn create(ctx: &Ctx, mm: &ModelManager, post_c: PostForCreate) -> Result<String> {
         base::create::<Self, _>(ctx, mm, post_c).await
     }
 
-    pub async fn get(ctx: &Ctx, mm: &ModelManager, id: i64) -> Result<Post> {
+    pub async fn get(ctx: &Ctx, mm: &ModelManager, id: &str) -> Result<Post> {
         base::get::<Self, _>(ctx, mm, id).await
     }
 
@@ -152,13 +138,13 @@ impl PostBmc {
     pub async fn update(
         ctx: &Ctx,
         mm: &ModelManager,
-        id: i64,
+        id: &str,
         post_u: PostForUpdate,
     ) -> Result<()> {
         base::update::<Self, _>(ctx, mm, id, post_u).await
     }
 
-    pub async fn delete(ctx: &Ctx, mm: &ModelManager, id: i64) -> Result<()> {
+    pub async fn delete(ctx: &Ctx, mm: &ModelManager, id: &str) -> Result<()> {
         base::delete::<Self>(ctx, mm, id).await
     }
 }
@@ -197,7 +183,7 @@ mod tests {
 
         // -- Exec
         let post_c = PostForCreate {
-            user_id: ctx.user_id(),
+            user_id: ctx.user_id().to_string(),
             title: fx_title.to_string(),
             description: fx_description.to_string(),
             is_published: fx_is_published,
@@ -210,13 +196,13 @@ mod tests {
         let id = PostBmc::create(&ctx, &mm, post_c).await?;
 
         // -- Check
-        let post = PostBmc::get(&ctx, &mm, id).await?;
+        let post = PostBmc::get(&ctx, &mm, &id).await?;
         assert_eq!(post.title, fx_title);
         assert_eq!(post.description, fx_description);
         assert_eq!(post.user_id, ctx.user_id());
 
         // -- Clean
-        PostBmc::delete(&ctx, &mm, id).await?;
+        PostBmc::delete(&ctx, &mm, &id).await?;
 
         Ok(())
     }
@@ -227,7 +213,7 @@ mod tests {
         // -- Setup & Fixtures
         let mm = _dev_utils::init_test().await;
         let ctx = Ctx::root_ctx();
-        let fx_id = 100;
+        let fx_id = "pst_000000000000000000000";
 
         // -- Exec
         let res = PostBmc::get(&ctx, &mm, fx_id).await;
@@ -238,7 +224,7 @@ mod tests {
                 res,
                 Err(Error::EntityNotFound {
                     entity: "post",
-                    id: 100
+                    id: _
                 })
             ),
             "EntityNotFound not matching"
@@ -268,7 +254,7 @@ mod tests {
 
         // -- Clean
         for post in posts.iter() {
-            PostBmc::delete(&ctx, &mm, post.id).await?;
+            PostBmc::delete(&ctx, &mm, &post.id).await?;
         }
 
         Ok(())
@@ -330,7 +316,7 @@ mod tests {
         .await?;
         assert_eq!(posts.len(), 5);
         for post in posts.iter() {
-            PostBmc::delete(&ctx, &mm, post.id).await?;
+            PostBmc::delete(&ctx, &mm, &post.id).await?;
         }
 
         Ok(())
@@ -354,7 +340,7 @@ mod tests {
         PostBmc::update(
             &ctx,
             &mm,
-            fx_post.id,
+            &fx_post.id,
             PostForUpdate {
                 title: Some(fx_title_new.to_string()),
                 description: Some(fx_description_new.to_string()),
@@ -364,7 +350,7 @@ mod tests {
         .await?;
 
         // -- Check
-        let post = PostBmc::get(&ctx, &mm, fx_post.id).await?;
+        let post = PostBmc::get(&ctx, &mm, &fx_post.id).await?;
         assert_eq!(post.title, fx_title_new);
         assert_eq!(post.description, fx_description_new);
 
@@ -377,7 +363,7 @@ mod tests {
         // -- Setup & Fixtures
         let mm = _dev_utils::init_test().await;
         let ctx = Ctx::root_ctx();
-        let fx_id = 100;
+        let fx_id = "pst_000000000000000000000";
 
         // -- Exec
         let res = PostBmc::delete(&ctx, &mm, fx_id).await;
@@ -388,7 +374,7 @@ mod tests {
                 res,
                 Err(Error::EntityNotFound {
                     entity: "post",
-                    id: 100
+                    id: _
                 })
             ),
             "EntityNotFound not matching"

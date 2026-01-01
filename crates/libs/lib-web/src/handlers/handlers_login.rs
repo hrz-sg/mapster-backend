@@ -29,11 +29,13 @@ pub async fn api_login_handler(
     let user: UserForLogin = UserBmc::first_by_username(&root_ctx, &mm, &username)
         .await?
         .ok_or(Error::LoginFailUsernameNotFound)?;
-    let user_id = user.id;
+    
+    // Store the user_id BEFORE moving user
+    let user_id = user.id.clone();
 
     // -- Validate the password.
     let Some(pwd) = user.pwd else {
-        return Err(Error::LoginFailUserHasNoPwd { user_id });
+        return Err(Error::LoginFailUserHasNoPwd { user_id: user_id.clone() });
     };
 
     let scheme_status = pwd::validate_pwd(
@@ -44,12 +46,13 @@ pub async fn api_login_handler(
         pwd,
     )
     .await
-    .map_err(|_| Error::LoginFailPwdNotMatching { user_id })?;
+    .map_err(|_| Error::LoginFailPwdNotMatching { user_id: user_id.clone() })?;
 
     // -- Update password scheme if needed
     if let SchemeStatus::Outdated = scheme_status {
         debug!("pwd encrypt scheme outdated, upgrading.");
-        UserBmc::update_pwd(&root_ctx, &mm, user.id, &pwd_clear).await?;
+        // Use the stored user_id here instead of user.id
+        UserBmc::update_pwd(&root_ctx, &mm, &user_id, &pwd_clear).await?;
     }
 
     // -- Set web token.
@@ -83,7 +86,7 @@ pub struct LoginResponse {
 
 #[derive(Debug, Serialize)]
 pub struct UserInfo {
-    pub id: i64,
+    pub id: String,
     pub username: String,
 }
 

@@ -25,7 +25,7 @@ impl UserFollowService {
     pub async fn is_following(
         ctx: &Ctx,
         mm: &ModelManager,
-        following_id: i64,
+        following_id: &str,
     ) -> Result<bool> {
         let viewer_id = ctx.user_id();
         UserFollowBmc::is_following(ctx, mm, viewer_id, following_id).await
@@ -34,7 +34,7 @@ impl UserFollowService {
     pub async fn list_followers(
         ctx: &Ctx,
         mm: &ModelManager,
-        target_user_id: Option<i64>,
+        target_user_id: Option<&str>,
     ) -> Result<FollowListResult> {
 
         let viewer_id = ctx.user_id();
@@ -44,21 +44,18 @@ impl UserFollowService {
 
         let total = UserFollowBmc::count_follows(ctx, mm, user_id).await?;
 
-        let user_ids: Vec<i64> = followers.iter().map(|u| u.id).collect();
+        let users_id: Vec<&str> = followers.iter().map(|u| u.id.as_str()).collect();
 
-        let relations =
-            UserFollowBmc::follow_relations(ctx, mm, viewer_id, &user_ids).await?;
+        let relations = UserFollowBmc::follow_relations(ctx, mm, viewer_id, &users_id).await?;
 
-        let relation_set: HashSet<(i64, i64)> =
+        let relation_set: HashSet<(String, String)> =
             relations.into_iter().collect();
 
         let users = followers
             .into_iter()
             .map(|user| {
-                let is_following =
-                    relation_set.contains(&(viewer_id, user.id));
-                let is_followed_by =
-                    relation_set.contains(&(user.id, viewer_id));
+                let is_following = relation_set.contains(&(viewer_id.to_string(), user.id.clone()));
+                let is_followed_by = relation_set.contains(&(user.id.clone(), viewer_id.to_string()));
 
                 FollowListItem {
                     user,
@@ -74,7 +71,7 @@ impl UserFollowService {
     pub async fn list_followings(
         ctx: &Ctx,
         mm: &ModelManager,
-        target_user_id: Option<i64>,
+        target_user_id: Option<&str>,
     ) -> Result<FollowListResult> {
 
         let viewer_id = ctx.user_id();
@@ -86,21 +83,18 @@ impl UserFollowService {
         let total =
             UserFollowBmc::count_follows(ctx, mm, user_id).await?;
 
-        let user_ids: Vec<i64> = followings.iter().map(|u| u.id).collect();
-
-        let relations =
-            UserFollowBmc::follow_relations(ctx, mm, viewer_id, &user_ids).await?;
-
-        let relation_set: HashSet<(i64, i64)> =
-            relations.into_iter().collect();
+        let users_id: Vec<&str> = followings.iter().map(|u| u.id.as_str()).collect();
+        
+        let relations = UserFollowBmc::follow_relations(ctx, mm, viewer_id, &users_id).await?;
+        let relation_set: HashSet<(String, String)> = relations.into_iter().collect();
 
         let users = followings
             .into_iter()
             .map(|user| {
                 let is_following =
-                    relation_set.contains(&(viewer_id, user.id));
+                    relation_set.contains(&(viewer_id.to_string(), user.id.clone()));
                 let is_followed_by =
-                    relation_set.contains(&(user.id, viewer_id));
+                    relation_set.contains(&(user.id.clone(), viewer_id.to_string()));
 
                 FollowListItem {
                     user,

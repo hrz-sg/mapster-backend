@@ -14,7 +14,7 @@ use lib_tmail::email::emails_sender::{
 };
 use lib_tmail::tmail_config;
 use modql::field::{Fields, HasSeaFields, SeaField, SeaFields};
-use modql::filter::{FilterNodes, ListOptions, OpValsInt64, OpValsString, OpValsValue};
+use modql::filter::{FilterNodes, ListOptions,OpValsString, OpValsValue};
 use sea_query::{Expr, Iden, PostgresQueryBuilder, Query};
 use sea_query_binder::SqlxBinder;
 use serde::{Deserialize, Serialize};
@@ -40,7 +40,7 @@ impl From<UserTyp> for sea_query::Value {
 
 #[derive(Clone, Fields, FromRow, Debug, Serialize)]
 pub struct User {
-    pub id: i64,
+    pub id: String,
     pub username: String,
     pub email: String,
     pub typ: UserTyp,
@@ -48,16 +48,16 @@ pub struct User {
     pub avatar_url: Option<String>,
 }
 
-#[derive(Fields, FromRow, Debug, Serialize)]
+#[derive(Clone, Fields, FromRow, Debug, Serialize)]
 pub struct UserForPreview {
-    pub id: i64,
+    pub id: String,
     pub username: String,
     pub avatar_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Fields, FromRow, Serialize)]
 pub struct UserProfileDetails {
-    pub id: i64,
+    pub id: String,
     pub username: String,
     pub avatar_url: Option<String>,
 
@@ -86,7 +86,7 @@ pub struct UserForInsert {
 
 #[derive(Clone, FromRow, Fields, Debug)]
 pub struct UserForLogin {
-    pub id: i64,
+    pub id: String,
     pub username: String,
     pub email: String,
 
@@ -98,7 +98,7 @@ pub struct UserForLogin {
 
 #[derive(Clone, FromRow, Fields, Debug)]
 pub struct UserForAuth {
-    pub id: i64,
+    pub id: String,
     pub username: String,
     pub email: String,
 
@@ -115,12 +115,18 @@ impl UserBy for UserForAuth {}
 impl UserBy for UserForPreview {}
 
 // Note: Since the entity properties Iden will be given by modql
-//       UserIden does not have to be exhaustive, but just have the columns
+// UserIden does not have to be exhaustive, but just have the columns
 #[derive(Iden)]
-pub(in crate::model) enum UserIden {
+pub(in crate::model) enum UserPublicIden {
     Id,
     Username,
     AvatarUrl,
+}
+
+// Note: Since the entity properties Iden will be given by modql
+// UserIden does not have to be exhaustive, but just have the columns
+#[derive(Iden)]
+enum UserIden {
     Bio,
     Location,
     Email,
@@ -135,14 +141,14 @@ pub(in crate::model) enum UserIden {
 
 #[derive(FilterNodes, Deserialize, Default, Debug)]
 pub struct UserFilter {
-    pub id: Option<OpValsInt64>,
+    pub id: Option<OpValsString>,
 
     pub username: Option<OpValsString>,
 
-    pub cid: Option<OpValsInt64>,
+    pub cid: Option<OpValsString>,
     #[modql(to_sea_value_fn = "time_to_sea_value")]
     pub ctime: Option<OpValsValue>,
-    pub mid: Option<OpValsInt64>,
+    pub mid: Option<OpValsString>,
     #[modql(to_sea_value_fn = "time_to_sea_value")]
     pub mtime: Option<OpValsValue>,
 }
@@ -157,7 +163,7 @@ impl DbBmc for UserBmc {
 }
 
 impl UserBmc {
-    pub async fn create(ctx: &Ctx, mm: &ModelManager, user_c: UserForCreate) -> Result<i64> {
+    pub async fn create(ctx: &Ctx, mm: &ModelManager, user_c: UserForCreate) -> Result<String> {
         let UserForCreate {
             username,
             email,
@@ -225,7 +231,7 @@ impl UserBmc {
         Ok(user_id)
     }
 
-    pub async fn get<E>(ctx: &Ctx, mm: &ModelManager, id: i64) -> Result<E>
+    pub async fn get<E>(ctx: &Ctx, mm: &ModelManager, id: &str) -> Result<E>
     where
         E: UserBy,
     {
@@ -235,16 +241,16 @@ impl UserBmc {
     pub async fn get_preview(
         _ctx: &Ctx,
         mm: &ModelManager,
-        id: i64,
+        id: &str,
     ) -> Result<UserForPreview> {
 
         let mut query = Query::select();
         query
             .from(Self::table_ref())
-            .expr_as(Expr::col(UserIden::Id), "id")
-            .expr_as(Expr::col(UserIden::Username), "username")
-            .expr_as(Expr::col(UserIden::AvatarUrl), "avatar_url")
-            .and_where(Expr::col(UserIden::Id).eq(id));
+            .expr_as(Expr::col(UserPublicIden::Id), "id")
+            .expr_as(Expr::col(UserPublicIden::Username), "username")
+            .expr_as(Expr::col(UserPublicIden::AvatarUrl), "avatar_url")
+            .and_where(Expr::col(UserPublicIden::Id).eq(id));
 
         let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
         let sqlx_query = sqlx::query_as_with::<_, UserForPreview, _>(&sql, values);
@@ -256,18 +262,18 @@ impl UserBmc {
     pub async fn get_profile_details(
         _ctx: &Ctx,
         mm: &ModelManager,
-        id: i64,
+        id: &str,
     ) -> Result<UserProfileDetails> {
 
         let mut query = Query::select();
         query
             .from(Self::table_ref())
-            .expr_as(Expr::col(UserIden::Id), "id")
-            .expr_as(Expr::col(UserIden::Username), "username")
-            .expr_as(Expr::col(UserIden::AvatarUrl), "avatar_url")
+            .expr_as(Expr::col(UserPublicIden::Id), "id")
+            .expr_as(Expr::col(UserPublicIden::Username), "username")
+            .expr_as(Expr::col(UserPublicIden::AvatarUrl), "avatar_url")
             .expr_as(Expr::col(UserIden::Bio), "bio")
             .expr_as(Expr::col(UserIden::Location), "location")
-            .and_where(Expr::col(UserIden::Id).eq(id));
+            .and_where(Expr::col(UserPublicIden::Id).eq(id));
 
         let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
         let sqlx_query =
@@ -290,7 +296,7 @@ impl UserBmc {
         query
             .from(Self::table_ref())
             .columns(E::sea_idens())
-            .and_where(Expr::col(UserIden::Username).eq(username));
+            .and_where(Expr::col(UserPublicIden::Username).eq(username));
 
         // -- Execute query
         let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
@@ -313,7 +319,7 @@ impl UserBmc {
     pub async fn list_by_ids(
         _ctx: &Ctx,
         mm: &ModelManager,
-        ids: &[i64],
+        ids: &[String],
     ) -> Result<Vec<UserForPreview>> {
         if ids.is_empty() {
             return Ok(vec![]);
@@ -323,10 +329,10 @@ impl UserBmc {
         let mut query = Query::select();
         query
             .from(Self::table_ref())
-            .expr_as(Expr::col(UserIden::Id), "id")
-            .expr_as(Expr::col(UserIden::Username), "username")
-            .expr_as(Expr::col(UserIden::AvatarUrl), "avatar_url")
-            .and_where(Expr::col(UserIden::Id).is_in(ids.iter().cloned().collect::<Vec<_>>()));
+            .expr_as(Expr::col(UserPublicIden::Id), "id")
+            .expr_as(Expr::col(UserPublicIden::Username), "username")
+            .expr_as(Expr::col(UserPublicIden::AvatarUrl), "avatar_url")
+            .and_where(Expr::col(UserPublicIden::Id).is_in(ids.iter().cloned().collect::<Vec<_>>()));
         
         // -- Exec query
         let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
@@ -335,7 +341,7 @@ impl UserBmc {
         Ok(entities)
     }
 
-    pub async fn update_pwd(ctx: &Ctx, mm: &ModelManager, id: i64, pwd_clear: &str) -> Result<()> {
+    pub async fn update_pwd(ctx: &Ctx, mm: &ModelManager, id: &str, pwd_clear: &str) -> Result<()> {
         // -- Prep password
         let user: UserForLogin = Self::get(ctx, mm, id).await?;
 
@@ -355,7 +361,7 @@ impl UserBmc {
         query
             .table(Self::table_ref())
             .values(fields)
-            .and_where(Expr::col(UserIden::Id).eq(id));
+            .and_where(Expr::col(UserPublicIden::Id).eq(id));
 
         // -- Exec query
         let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
@@ -365,7 +371,7 @@ impl UserBmc {
         Ok(())
     }
 
-    pub async fn update_token_salt(ctx: &Ctx, mm: &ModelManager, id: i64) -> Result<()> {
+    pub async fn update_token_salt(ctx: &Ctx, mm: &ModelManager, id: &str) -> Result<()> {
         let new_salt = Uuid::new_v4();
 
         // -- Prep fields
@@ -378,7 +384,7 @@ impl UserBmc {
         query
             .table(Self::table_ref())
             .values(fields)
-            .and_where(Expr::col(UserIden::Id).eq(id));
+            .and_where(Expr::col(UserPublicIden::Id).eq(id));
 
         let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
         mm.dbx().execute(sqlx::query_with(&sql, values)).await?;
@@ -394,11 +400,11 @@ impl UserBmc {
         let mut query = Query::select();
         query
             .from(Self::table_ref())
-            .columns(vec![UserIden::Id, UserIden::Username])
+            .columns(vec![UserPublicIden::Id, UserPublicIden::Username])
             .and_where(Expr::col(UserIden::Email).eq(email));
 
         let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
-        let sqlx_query = sqlx::query_as_with::<_, (i64, String), _>(&sql, values);
+        let sqlx_query = sqlx::query_as_with::<_, (String, String), _>(&sql, values);
         let user_opt = mm.dbx().fetch_optional(sqlx_query).await?;
 
         let (user_id, username) = match user_opt {
@@ -422,7 +428,7 @@ impl UserBmc {
                 (UserIden::ResetToken, Expr::value(reset_token.clone())),
                 (UserIden::ResetTokenExpiresAt, Expr::value(expires_at)),
             ])
-            .and_where(Expr::col(UserIden::Id).eq(user_id));
+            .and_where(Expr::col(UserPublicIden::Id).eq(user_id));
 
         let (sql, values) = update.build_sqlx(PostgresQueryBuilder);
         mm.dbx().execute(sqlx::query_with(&sql, values)).await?;
@@ -455,12 +461,13 @@ impl UserBmc {
         let mut query = Query::select();
         query
             .from(Self::table_ref())
-            .columns(vec![UserIden::Id, UserIden::ResetTokenExpiresAt])
+            .expr_as(Expr::col(UserPublicIden::Id), "id")
+            .expr_as(Expr::col(UserIden::ResetTokenExpiresAt), "reset_token_expires_at")
             .and_where(Expr::col(UserIden::ResetToken).eq(token));
 
         let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
         let sqlx_query =
-            sqlx::query_as_with::<_, (i64, Option<chrono::DateTime<Utc>>), _>(&sql, values);
+            sqlx::query_as_with::<_, (String, Option<chrono::DateTime<Utc>>), _>(&sql, values);
         let row = mm.dbx().fetch_optional(sqlx_query).await?;
 
         let (user_id, expires_at) = match row {
@@ -479,7 +486,7 @@ impl UserBmc {
             }
 
         // -- Hash new password
-        let user: UserForLogin = Self::get(ctx, mm, user_id).await?;
+        let user: UserForLogin = Self::get(ctx, mm, &user_id).await?;
         let new_pwd = lib_auth::pwd::hash_pwd(lib_auth::pwd::ContentToHash {
             content: new_password.to_string(),
             salt: user.pwd_salt,
@@ -498,13 +505,13 @@ impl UserBmc {
                     Expr::value(Option::<chrono::DateTime<Utc>>::None),
                 ),
             ])
-            .and_where(Expr::col(UserIden::Id).eq(user_id));
+            .and_where(Expr::col(UserPublicIden::Id).eq(&user_id));
 
         let (sql, values) = update.build_sqlx(PostgresQueryBuilder);
         mm.dbx().execute(sqlx::query_with(&sql, values)).await?;
 
         // -- Invalidate all tokens creating new token
-        UserBmc::update_token_salt(ctx, mm, user_id).await?;
+        UserBmc::update_token_salt(ctx, mm, &user_id).await?;
 
         tracing::info!(
             "Password reset successful for user_id {}, tokens invalidated",
@@ -527,12 +534,13 @@ impl UserBmc {
         let mut query = Query::select();
         query
             .from(Self::table_ref())
-            .columns(vec![UserIden::Id, UserIden::EmailVerificationExpiresAt])
+            .expr_as(Expr::col(UserPublicIden::Id), "id")
+            .expr_as(Expr::col(UserIden::EmailVerificationExpiresAt),"email_verification_expires_at")
             .and_where(Expr::col(UserIden::EmailVerificationToken).eq(token));
 
         let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
         let sqlx_query =
-            sqlx::query_as_with::<_, (i64, Option<chrono::DateTime<chrono::Utc>>), _>(&sql, values);
+            sqlx::query_as_with::<_, (String, Option<chrono::DateTime<chrono::Utc>>), _>(&sql, values);
         let row = mm.dbx().fetch_optional(sqlx_query).await?;
 
         tracing::debug!("Found user for token: {:?}", row);
@@ -573,7 +581,7 @@ impl UserBmc {
                     Expr::value(Option::<chrono::DateTime<chrono::Utc>>::None),
                 ),
             ])
-            .and_where(Expr::col(UserIden::Id).eq(user_id));
+            .and_where(Expr::col(UserPublicIden::Id).eq(&user_id));
 
         let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
         let sqlx_query = sqlx::query_with(&sql, values);
@@ -595,7 +603,7 @@ impl UserBmc {
     ///       - The automatically set `mid`/`mtime` will record who performed the deletion.
     ///       - It's likely necessary to record this action in a `um_change_log` (a user management change audit table).
     ///       - Remove or clean up any user-specific assets (messages, etc.).
-    pub async fn delete(ctx: &Ctx, mm: &ModelManager, id: i64) -> Result<()> {
+    pub async fn delete(ctx: &Ctx, mm: &ModelManager, id: &str) -> Result<()> {
         base::delete::<Self>(ctx, mm, id).await
     }
 }
@@ -636,11 +644,11 @@ mod tests {
         .await?;
 
         // -- Check
-        let user: UserForLogin = UserBmc::get(&ctx, &mm, user_id).await?;
+        let user: UserForLogin = UserBmc::get(&ctx, &mm, &user_id).await?;
         assert_eq!(user.username, fx_username);
 
         // -- Clean
-        UserBmc::delete(&ctx, &mm, user_id).await?;
+        UserBmc::delete(&ctx, &mm, &user_id).await?;
 
         Ok(())
     }

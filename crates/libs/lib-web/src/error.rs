@@ -19,10 +19,10 @@ pub enum Error {
     // -- Login
     LoginFailUsernameNotFound,
     LoginFailUserHasNoPwd {
-        user_id: i64,
+        user_id: String,
     },
     LoginFailPwdNotMatching {
-        user_id: i64,
+        user_id: String,
     },
 
     // -- Entity
@@ -111,7 +111,7 @@ impl Error {
 
             Self::Model(model::Error::EntityNotFound { entity, id }) => (
                 StatusCode::NOT_FOUND,
-                ClientError::ENTITY_NOT_FOUND { entity, id: *id },
+                ClientError::ENTITY_NOT_FOUND { entity, id: id.clone() },
             ),
 
             // -- Fallback
@@ -131,7 +131,7 @@ impl Error {
 pub enum ClientError {
     LOGIN_FAIL,
     NO_AUTH,
-    ENTITY_NOT_FOUND { entity: &'static str, id: i64 },
+    ENTITY_NOT_FOUND { entity: &'static str, id: String },
 
     RPC_REQUEST_INVALID(String),
     RPC_REQUEST_METHOD_UNKNOWN(String),

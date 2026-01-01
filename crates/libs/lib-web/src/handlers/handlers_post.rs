@@ -4,7 +4,7 @@ use axum::{
     extract::{Multipart, Path, State},
 };
 use lib_core::{
-    ctx::Ctx, model::{ModelManager, post::{PostFeedItem, PostForDetail}}, 
+    ctx::Ctx, model::{ModelManager, post::{PostFeedItem, PostDetail}}, 
     service::post::{CreatePostPayload, PostService, UpdatePostPayload}
 };
 use serde::Serialize;
@@ -89,13 +89,13 @@ pub async fn api_list_feed_posts_handler(
 
 pub async fn api_get_post_detail_by_id(
     State(mm): State<ModelManager>,
-    Path(post_id): Path<i64>,
+    Path(post_id): Path<String>,
     // ctx: &Ctx,
 ) -> Result<Json<GetPostResponse>> {
     debug!("{:<12} - api_get_post_handler", "HANDLER");
 
     let ctx = Ctx::root_ctx();
-    let post = PostService::get_post_detail_by_id(&ctx, &mm, post_id).await?;
+    let post = PostService::get_post_detail_by_id(&ctx, &mm, &post_id).await?;
 
     Ok(Json(GetPostResponse {
         success: true,
@@ -105,7 +105,7 @@ pub async fn api_get_post_detail_by_id(
 
 pub async fn api_update_post_handler(
     State(mm): State<ModelManager>,
-    Path(post_id): Path<i64>,
+    Path(post_id): Path<String>,
     mut multipart: Multipart,
     // ctx: &Ctx,
 ) -> Result<Json<UpdatePostResponse>> {
@@ -119,6 +119,9 @@ pub async fn api_update_post_handler(
     let mut update_files = Vec::new();
     let mut remove_ids = Vec::new();
 
+    let mut update_media_ids = Vec::new();
+    let mut update_file_data = Vec::new();
+
     while let Some(field) = multipart.next_field().await.unwrap() {
         let name = field.name().unwrap_or("").to_string();
         match name.as_str() {
@@ -129,30 +132,49 @@ pub async fn api_update_post_handler(
                 let data = field.bytes().await.unwrap().to_vec();
                 add_files.push((filename, data));
             }
-            "update_files[]" => {
-                // Example: field can be "update_files_3" where 3 — id is media
-                let filename = field.file_name().unwrap_or("upload.bin").to_string();
-
-                // try to get id from filename (ex. "update_3.png" → id=3)
-                let id: Option<i64> = filename
-                    .split('_')
-                    .filter_map(|s| s.parse::<i64>().ok())
-                    .next();
-
-                let data = field.bytes().await.unwrap().to_vec();
-
-                if let Some(id) = id {
-                    update_files.push((id, filename, data));
+            "update_media_id[]" => {
+                if let Ok(media_id) = field.text().await {
+                    let media_id = media_id.trim().to_string();
+                    if !media_id.is_empty() {
+                        update_media_ids.push(media_id);
+                    }
                 }
             }
+            "update_file[]" => {
+                let filename = field.file_name().unwrap_or("upload.bin").to_string();
+                let data = field.bytes().await.unwrap().to_vec();
+                update_file_data.push((filename, data));
+            }
             "remove_ids[]" => {
-                if let Ok(id_str) = field.text().await {
-                    if let Ok(id) = id_str.parse::<i64>() {
-                        remove_ids.push(id);
+                if let Ok(media_id) = field.text().await {
+                    let media_id = media_id.trim().to_string();
+                    if !media_id.is_empty() {
+                        remove_ids.push(media_id);
                     }
                 }
             }
             _ => (),
+        }
+    }
+
+    if !update_media_ids.is_empty() && !update_file_data.is_empty() {
+        // Check that the number of IDs matches the number of files
+        if update_media_ids.len() == update_file_data.len() {
+            for i in 0..update_media_ids.len() {
+                let media_id = update_media_ids[i].clone();
+                let (filename, data) = update_file_data[i].clone();
+                update_files.push((media_id, filename, data));
+            }
+        } else {
+            // If the order does not match, there is an error.
+            tracing::error!(
+                "Mismatched update_media_ids ({}) and update_file_data ({}) count",
+                update_media_ids.len(),
+                update_file_data.len()
+            );
+            return Err(Error::File(lib_utils::file::Error::ValidationFail(
+                "Number of media IDs does not match number of files".into(),
+            )));
         }
     }
 
@@ -166,7 +188,7 @@ pub async fn api_update_post_handler(
         new_cover_id: None,
     };
 
-    PostService::update_with_media(&ctx, &mm, post_id, payload).await?;
+    PostService::update_with_media(&ctx, &mm, &post_id, payload).await?;
 
     Ok(Json(UpdatePostResponse {
         success: true,
@@ -176,11 +198,11 @@ pub async fn api_update_post_handler(
 
 pub async fn api_delete_post_handler(
     State(mm): State<ModelManager>,
-    Path(post_id): Path<i64>,
+    Path(post_id): Path<String>,
 ) -> Result<Json<DeletePostResponse>> {
     let ctx = Ctx::root_ctx();
 
-    PostService::delete(&ctx, &mm, post_id).await?;
+    PostService::delete(&ctx, &mm, &post_id).await?;
 
     Ok(Json(DeletePostResponse {
         success: true,
@@ -192,7 +214,7 @@ pub async fn api_delete_post_handler(
 #[derive(Debug, Serialize)]
 pub struct CreatePostResponse {
     success: bool,
-    id: Option<i64>,
+    id: Option<String>,
     message: String,
 }
 
@@ -211,7 +233,7 @@ pub struct ListPostsResponse {
 #[derive(Debug, Serialize)]
 pub struct GetPostResponse {
     pub success: bool,
-    pub post: PostForDetail,
+    pub post: PostDetail,
 }
 
 #[derive(Debug, Serialize)]

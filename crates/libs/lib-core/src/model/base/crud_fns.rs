@@ -4,7 +4,7 @@ use crate::ctx::Ctx;
 use crate::model::ModelManager;
 use crate::model::base::{
     CommonIden, DbBmc, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, prep_fields_for_create,
-    prep_fields_for_update,
+    prep_fields_for_update, ids::generate_id_for_table,
 };
 use crate::model::{Error, Result};
 use modql::field::HasSeaFields;
@@ -14,8 +14,9 @@ use sea_query_binder::SqlxBinder;
 use sqlx::FromRow;
 use sqlx::Row;
 use sqlx::postgres::PgRow;
+use uuid::Uuid;
 
-pub async fn create<MC, E>(ctx: &Ctx, mm: &ModelManager, data: E) -> Result<i64>
+pub async fn create<MC, E>(ctx: &Ctx, mm: &ModelManager, data: E) -> Result<String>
 where
     MC: DbBmc,
     E: HasSeaFields,
@@ -37,7 +38,7 @@ where
 
     // -- Exec query
     let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
-    let sqlx_query = sqlx::query_as_with::<_, (i64,), _>(&sql, values);
+    let sqlx_query = sqlx::query_as_with::<_, (String,), _>(&sql, values);
     // NOTE: For now, we will use the _txn for all create.
     //       We could have a with_txn as function argument if perf is an issue (it should not be)
     let (id,) = mm.dbx().fetch_one(sqlx_query).await?;
@@ -45,7 +46,7 @@ where
     Ok(id)
 }
 
-pub async fn create_many<MC, E>(ctx: &Ctx, mm: &ModelManager, data: Vec<E>) -> Result<Vec<i64>>
+pub async fn create_many<MC, E>(ctx: &Ctx, mm: &ModelManager, data: Vec<E>) -> Result<Vec<String>>
 where
     MC: DbBmc,
     E: HasSeaFields,
@@ -72,19 +73,19 @@ where
 
     // Execute query
     let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
-    let sqlx_query = sqlx::query_as_with::<_, (i64,), _>(&sql, values);
+    let sqlx_query = sqlx::query_as_with::<_, (String,), _>(&sql, values);
 
     let rows = mm.dbx().fetch_all(sqlx_query).await?;
 
     for row in rows {
-        let (id,): (i64,) = row;
+        let (id,): (String,) = row;
         ids.push(id);
     }
 
     Ok(ids)
 }
 
-pub async fn get<MC, E>(_ctx: &Ctx, mm: &ModelManager, id: i64) -> Result<E>
+pub async fn get<MC, E>(_ctx: &Ctx, mm: &ModelManager, id: &str) -> Result<E>
 where
     MC: DbBmc,
     E: for<'r> FromRow<'r, PgRow> + Unpin + Send,
@@ -106,7 +107,7 @@ where
         .await?
         .ok_or(Error::EntityNotFound {
             entity: MC::TABLE,
-            id,
+            id: id.to_string(),
         })?;
 
     Ok(entity)
@@ -139,7 +140,7 @@ where
         None => ListOptions {
             limit: Some(1),
             offset: None,
-            order_bys: Some("id".into()), // default id asc
+            order_bys: Some("ctime".into()), // sort by time created
         },
     };
 
@@ -214,7 +215,7 @@ where
     Ok(count)
 }
 
-pub async fn update<MC, E>(ctx: &Ctx, mm: &ModelManager, id: i64, data: E) -> Result<()>
+pub async fn update<MC, E>(ctx: &Ctx, mm: &ModelManager, id: &str, data: E) -> Result<()>
 where
     MC: DbBmc,
     E: HasSeaFields,
@@ -240,14 +241,14 @@ where
     if count == 0 {
         Err(Error::EntityNotFound {
             entity: MC::TABLE,
-            id,
+            id: id.to_string(),
         })
     } else {
         Ok(())
     }
 }
 
-pub async fn delete<MC>(_ctx: &Ctx, mm: &ModelManager, id: i64) -> Result<()>
+pub async fn delete<MC>(_ctx: &Ctx, mm: &ModelManager, id: &str) -> Result<()>
 where
     MC: DbBmc,
 {
@@ -266,14 +267,14 @@ where
     if count == 0 {
         Err(Error::EntityNotFound {
             entity: MC::TABLE,
-            id,
+            id: id.to_string(),
         })
     } else {
         Ok(())
     }
 }
 
-pub async fn delete_many<MC>(_ctx: &Ctx, mm: &ModelManager, ids: Vec<i64>) -> Result<u64>
+pub async fn delete_many<MC>(_ctx: &Ctx, mm: &ModelManager, ids: Vec<&str>) -> Result<u64>
 where
     MC: DbBmc,
 {
@@ -296,7 +297,7 @@ where
     if result as usize != ids.len() {
         Err(Error::EntityNotFound {
             entity: MC::TABLE,
-            id: 0, // Using 0 because multiple IDs could be not found, you may want to improve error handling here
+            id: "mutliple".to_string(), // TODO: improve error handling here
         })
     } else {
         Ok(result)

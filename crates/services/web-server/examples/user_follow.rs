@@ -36,10 +36,10 @@ async fn main() -> Result<()> {
     parse_json(my_followers_resp).await?;
     println!("Get MY followers successfully!");
     
-    // --- Get OTHER user's followers (user_id = 1111)
-    println!("\n--- Getting OTHER user's followers (user_id=1111) ---");
+    // --- Get OTHER user's followers (user_id = usr_demo00000000000000000)
+    println!("\n--- Getting OTHER user's followers (user_id=usr_demo00000000000000000) ---");
     let other_followers_resp = client
-        .get(&format!("{}/api/users/1111/followers", BASE_URL))
+        .get(&format!("{}/api/users/usr_demo00000000000000000/followers", BASE_URL))
         .send()
         .await?;
 
@@ -56,10 +56,10 @@ async fn main() -> Result<()> {
     parse_json(my_followings_resp).await?;
     println!("Get MY followings successfully!");
     
-    // --- Get OTHER user's followings (user_id = 1111)
-    println!("\n--- Getting OTHER user's followings (user_id=1111) ---");
+    // --- Get OTHER user's followings (user_id = usr_demo00000000000000000)
+    println!("\n--- Getting OTHER user's followings (user_id=usr_demo00000000000000000) ---");
     let other_followings_resp = client
-        .get(&format!("{}/api/users/1111/followings", BASE_URL))
+        .get(&format!("{}/api/users/usr_demo00000000000000000/followings", BASE_URL))
         .send()
         .await?;
 

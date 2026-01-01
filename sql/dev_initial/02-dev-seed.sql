@@ -1,12 +1,12 @@
 -- Create root user
 INSERT INTO "user" 
     (id, typ, username, email, cid, ctime, mid, mtime) VALUES 
-    (0, 'Sys', 'root', 'root@system.com', 0, now(), 0, now());
+    ('usr_sys_root_0000000000000', 'Sys', 'root', 'root@system.com', 'usr_sys_root_0000000000000', now(), 'usr_sys_root_0000000000000', now());
 
 -- Create demo1 User
-INSERT INTO "user" 
-    (id, username, email, cid, ctime, mid, mtime) VALUES 
-    (1111, 'demo1', 'demo1@example.com', 0, now(), 0, now());
+INSERT INTO "user"
+    (id, username, email, avatar_url, cid, ctime, mid, mtime) VALUES 
+    ('usr_demo00000000000000000', 'demo0', 'demo0@example.com', 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=387&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 'usr_sys_root_0000000000000', now(), 'usr_sys_root_0000000000000', now());
 
 -- ==========================================================
 -- USERS 
@@ -16,19 +16,25 @@ INSERT INTO "user"
 INSERT INTO "user"
     (id, typ, username, email, avatar_url, cid, ctime, mid, mtime)
 VALUES
-    (1001, 'User', 'stacy.up', 'stacy.up32132@test.com', 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 0, now(), 0, now());
+    ('usr_demo10000000000000000', 'User', 'stacy.up', 'stacy.up32132@test.com',
+     'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+     'usr_sys_root_0000000000000', now(), 'usr_sys_root_0000000000000', now());
 
 -- Demo user 2
 INSERT INTO "user"
     (id, typ, username, email, avatar_url, cid, ctime, mid, mtime)
 VALUES
-    (1002, 'User', 'kristina_23', 'kristina_23.love@test.com', 'https://plus.unsplash.com/premium_photo-1670282393309-70fd7f8eb1ef?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8Z2lybHxlbnwwfHwwfHx8MA%3D%3D', 0, now(), 0, now());
+    ('usr_demo20000000000000000', 'User', 'kristina_23', 'kristina_23.love@test.com',
+     'https://plus.unsplash.com/premium_photo-1670282393309-70fd7f8eb1ef?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8Z2lybHxlbnwwfHwwfHx8MA%3D%3D',
+     'usr_sys_root_0000000000000', now(), 'usr_sys_root_0000000000000', now());
 
 -- Demo user 3
 INSERT INTO "user"
     (id, typ, username, email, avatar_url, cid, ctime, mid, mtime)
 VALUES
-    (1003, 'User', 'john_funk', 'john_funk06@test.com', 'https://images.unsplash.com/photo-1600486913747-55e5470d6f40?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTV8fG1hbnxlbnwwfHwwfHx8MA%3D%3D', 0, now(), 0, now());
+    ('usr_demo30000000000000000', 'User', 'john_funk', 'john_funk06@test.com',
+     'https://images.unsplash.com/photo-1600486913747-55e5470d6f40?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTV8fG1hbnxlbnwwfHwwfHx8MA%3D%3D',
+     'usr_sys_root_0000000000000', now(), 'usr_sys_root_0000000000000', now());
 
 -- ==========================================================
 -- POSTS 
@@ -54,8 +60,8 @@ INSERT INTO post (
 )
 VALUES
     (
-        2001,
-        1001,
+        'pst_shanghai_trip_0000000',
+        'usr_demo10000000000000000',
         'My first trip to Shanghai',
         'My first trip to Shanghai felt like stepping into the future.
 The skyline looked unreal with its glowing lights.
@@ -81,14 +87,14 @@ By the end of the trip, I felt a strong connection to the city and a desire to r
         125000,
         3400,
         22000,
-        0,
+        'usr_demo10000000000000000',
         now(),
-        0,
+        'usr_demo10000000000000000',
         now()
     ),
     (
-        2002,
-        1001,
+        'pst_morgenwanderung_0000',
+        'usr_demo10000000000000000',
         'Morgenwanderung im frühen Licht',
         'Eine Morgenwanderung hat etwas Magisches an sich.
 Die Luft fühlt sich frischer an als zu jeder anderen Tageszeit.
@@ -114,14 +120,14 @@ Am Ende des Weges war ich angenehm müde, aber innerlich voller neuer Energie un
         3200,
         220,
         800,
-        0,
+        'usr_demo10000000000000000',
         now(),
-        0,
+        'usr_demo10000000000000000',
         now()
     ),
     (
-        2003,
-        1001,
+        'pst_japan_trip_000000000',
+        'usr_demo10000000000000000',
         '美丽的日本旅程时光',
         '日本真的美得令人惊叹，它的每一个角落都像是精心描绘的画卷。
 街道整洁而安静，让人一走进去便感到心情平静而舒畅。
@@ -153,9 +159,9 @@ Am Ende des Weges war ich angenehm müde, aber innerlich voller neuer Energie un
         980000,
         72000,
         410000,
-        0,
+        'usr_demo10000000000000000',
         now(),
-        0,
+        'usr_demo10000000000000000',
         now()
     );
 
@@ -179,8 +185,8 @@ INSERT INTO post (
 )
 VALUES
     (
-        2005,
-        1002,
+        'pst_japan_inspiring_00000',
+        'usr_demo20000000000000000',
         'Удивительная и вдохновляющая Япония',
         'Япония снова удивила меня своей уникальностью, словно каждый раз открывает совершенно новую грань своей культуры и характера.
 Каждый город здесь будто живёт по своим собственным правилам, создавая неповторимую атмосферу, в которой гармонично сочетаются традиции и современность.
@@ -210,14 +216,14 @@ VALUES
         265000,
         18500,
         96000,
-        0,
+        'usr_demo20000000000000000',
         now(),
-        0,
+        'usr_demo20000000000000000',
         now()
     ),
     (
-        2006,
-        1002,
+        'pst_perfect_day_off_00000',
+        'usr_demo20000000000000000',
         'My Perfectly Peaceful Day Off',
         'My day off was exactly what I needed.
 I started the morning slowly with a warm cup of coffee.
@@ -229,7 +235,6 @@ Later, I cooked a simple but comforting meal.
 I allowed myself to rest without feeling guilty.
 The day felt balanced and refreshing.
 Sometimes a calm day is the best gift you can give yourself.
-
 Später am Nachmittag machte ich mir eine Playlist mit sanfter Musik und legte mich für eine Weile hin.
 I looked out the window and watched the light slowly change as the day moved toward evening.
 I wrote a few thoughts in a notebook to capture how calm and content I felt.
@@ -244,14 +249,14 @@ I went to sleep feeling rested, grounded, and ready for the days ahead.',
         870,
         45,
         210,
-        0,
+        'usr_demo20000000000000000',
         now(),
-        0,
+        'usr_demo20000000000000000',
         now()
     ),
     (
-        2007,
-        1002,
+        'pst_chicago_urban_0000000',
+        'usr_demo20000000000000000',
         'Urbanes Chicago: Energie der Großstadt',
         'Chicago ist eine Stadt voller Energie, die einen schon bei der Ankunft mit ihrer besonderen Dynamik empfängt.
 Die Wolkenkratzer ragen beeindruckend in den Himmel und wirken je nach Tageszeit völlig unterschiedlich – morgens klar und kraftvoll, abends wie riesige leuchtende Skulpturen.
@@ -279,14 +284,14 @@ Es ist eine Stadt, die sich ständig weiterentwickelt und dennoch ihre Seele bew
         6400,
         390,
         1500,
-        0,
+        'usr_demo20000000000000000',
         now(),
-        0,
+        'usr_demo20000000000000000',
         now()
     ),
     (
-        2008,
-        1002,
+        'pst_moscow_trip_000000000',
+        'usr_demo20000000000000000',
         'Моё незабываемое путешествие в Москву',
         'Поездка в Москву получилась насыщенной и яркой.
 Красная площадь впечатлила своими масштабами.
@@ -312,14 +317,14 @@ Es ist eine Stadt, die sich ständig weiterentwickelt und dennoch ihre Seele bew
         45200,
         3100,
         9800,
-        0,
+        'usr_demo20000000000000000',
         now(),
-        0,
+        'usr_demo20000000000000000',
         now()
     ),
     (
-        2009,
-        1002,
+        'pst_mongol_trip_000000000',
+        'usr_demo20000000000000000',
         'Mongolian Horses and Endless Landscapes',
         'Seeing horses in Mongolia was an unforgettable experience.
 They roam freely across vast open fields.
@@ -345,9 +350,9 @@ This journey changed the way I think about freedom, distance, and connection to 
         2100,
         160,
         630,
-        0,
+        'usr_demo20000000000000000',
         now(),
-        0,
+        'usr_demo20000000000000000',
         now()
     );
 
@@ -371,8 +376,8 @@ INSERT INTO post (
 )
 VALUES
     (
-        2010,
-        1003,
+        'pst_germany_holiday_00000',
+        'usr_demo30000000000000000',
         'Mein erholsamer Urlaub in Deutschland',
         'Mein Urlaub in Deutschland war voller schöner Eindrücke.
 Die Städte waren sauber und gut organisiert.
@@ -398,14 +403,14 @@ Diese Vielfalt machte die Reise durch Deutschland noch spannender und bereichern
         12800,
         870,
         4200,
-        0,
+        'usr_demo30000000000000000',
         now(),
-        0,
+        'usr_demo30000000000000000',
         now()
     ),
     (
-        2011,
-        1003,
+        'pst_france_business_00000',
+        'usr_demo30000000000000000',
         'Business trip to France',
         'My business trip to France was both productive and enjoyable.
 The meetings went smoothly and gave me new ideas.
@@ -431,14 +436,14 @@ By the end of the trip, I felt not only professionally satisfied but also person
         534000,
         36500,
         187000,
-        0,
+        'usr_demo30000000000000000',
         now(),
-        0,
+        'usr_demo30000000000000000',
         now()
     ),
     (
-        2012,
-        1003,
+        'pst_spain_travel_0000000',
+        'usr_demo30000000000000000',
         'Испания — удивительное место для путешествий',
         'Испания оказалась ещё одним потрясающим местом для путешествий.
 Улицы наполнены солнечным светом и яркими красками.
@@ -464,14 +469,14 @@ By the end of the trip, I felt not only professionally satisfied but also person
         5900,
         280,
         1700,
-        0,
+        'usr_demo30000000000000000',
         now(),
-        0,
+        'usr_demo30000000000000000',
         now()
     ),
     (
-        2013,
-        1003,
+        'pst_greece_island_00000',
+        'usr_demo30000000000000000',
         '令人惊叹的希腊海岛之旅',
         '希腊真的让我惊叹不已。
 蓝色的大海让人目不转睛。
@@ -497,9 +502,9 @@ By the end of the trip, I felt not only professionally satisfied but also person
         1200000,
         95500,
         520000,
-        0,
+        'usr_demo30000000000000000',
         now(),
-        0,
+        'usr_demo30000000000000000',
         now()
     );
 
@@ -507,8 +512,9 @@ By the end of the trip, I felt not only professionally satisfied but also person
 -- POST MEDIA
 -- ==========================================================
 
--- Media for User 1 posts
+-- Media for User 1 posts (usr_demo10000000000000000)
 INSERT INTO post_media (
+    id,
     post_id,
     media_url,
     media_type,
@@ -521,85 +527,93 @@ INSERT INTO post_media (
 )
 VALUES
     (
-        2001,
+        'pmd_shanghai_1_0000000000',
+        'pst_shanghai_trip_0000000',
         'https://images.unsplash.com/photo-1538428494232-9c0d8a3ab403?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'image',
         'image/jpeg',
         1,
-        1001,
+        'usr_demo10000000000000000',
         now(),
-        1001,
+        'usr_demo10000000000000000',
         now()
     ),
     (
-        2001,
+        'pmd_shanghai_2_0000000000',
+        'pst_shanghai_trip_0000000',
         'https://plus.unsplash.com/premium_photo-1729162773996-68e1c42d77a8?q=80&w=774&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'image',
         'image/jpeg',
         2,
-        1001,
+        'usr_demo10000000000000000',
         now(),
-        1001,
+        'usr_demo10000000000000000',
         now()
     ),
     (
-        2001,
+        'pmd_shanghai_3_0000000000',
+        'pst_shanghai_trip_0000000',
         'https://images.unsplash.com/photo-1474181487882-5abf3f0ba6c2?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'image',
         'image/jpeg',
         3,
-        1001,
+        'usr_demo10000000000000000',
         now(),
-        1001,
+        'usr_demo10000000000000000',
         now()
     ),
     (
-        2002,
+        'pmd_morgen_1_00000000000',
+        'pst_morgenwanderung_0000',
         'https://images.unsplash.com/photo-1551632811-561732d1e306?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'image',
         'image/jpeg',
         1,
-        1001,
+        'usr_demo10000000000000000',
         now(),
-        1001,
+        'usr_demo10000000000000000',
         now()
     ),
     (
-        2002,
+        'pmd_morgen_2_00000000000',
+        'pst_morgenwanderung_0000',
         'https://plus.unsplash.com/premium_photo-1677002240252-af3f88114efc?q=80&w=1650&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'image',
         'image/jpeg',
         2,
-        1001,
+        'usr_demo10000000000000000',
         now(),
-        1001,
+        'usr_demo10000000000000000',
         now()
     ),
     (
-        2003,
+        'pmd_japan_1_00000000000',
+        'pst_japan_trip_000000000',
         'https://images.unsplash.com/photo-1478436127897-769e1b3f0f36?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'image',
         'image/jpeg',
         1,
-        1001,
+        'usr_demo10000000000000000',
         now(),
-        1001,
+        'usr_demo10000000000000000',
         now()
     ),
     (
-        2003,
+        'pmd_japan_2_00000000000',
+        'pst_japan_trip_000000000',
         'https://images.unsplash.com/photo-1480796927426-f609979314bd?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'image',
         'image/jpeg',
         2,
-        1001,
+        'usr_demo10000000000000000',
         now(),
-        1001,
+        'usr_demo10000000000000000',
         now()
     );
 
--- Media for User 2 posts
+-- Media for User 2 posts (usr_demo20000000000000000)
 INSERT INTO post_media (
+    id,
     post_id,
     media_url,
     media_type,
@@ -612,107 +626,117 @@ INSERT INTO post_media (
 )
 VALUES
     (
-        2005,
+        'pmd_japan2_1_00000000000',
+        'pst_japan_inspiring_00000',
         'https://plus.unsplash.com/premium_photo-1661964177687-57387c2cbd14?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'image',
         'image/jpeg',
         1,
-        1002,
+        'usr_demo20000000000000000',
         now(),
-        1002,
+        'usr_demo20000000000000000',
         now()
     ),
     (
-        2005,
+        'pmd_japan2_2_00000000000',
+        'pst_japan_inspiring_00000',
         'https://images.unsplash.com/photo-1528164344705-47542687000d?q=80&w=892&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'image',
         'image/jpeg',
         2,
-        1002,
+        'usr_demo20000000000000000',
         now(),
-        1002,
+        'usr_demo20000000000000000',
         now()
     ),
     (
-        2005,
+        'pmd_japan2_3_00000000000',
+        'pst_japan_inspiring_00000',
         'https://plus.unsplash.com/premium_photo-1690749740487-01bbb8e51e71?q=80&w=465&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'video',
         'video/mp4',
         3,
-        1002,
+        'usr_demo20000000000000000',
         now(),
-        1002,
+        'usr_demo20000000000000000',
         now()
     ),
     (
-        2006,
+        'pmd_dayoff_1_00000000000',
+        'pst_perfect_day_off_00000',
         'https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?q=80&w=876&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'image',
         'image/jpeg',
         1,
-        1002,
+        'usr_demo20000000000000000',
         now(),
-        1002,
+        'usr_demo20000000000000000',
         now()
     ),
     (
-        2006,
+        'pmd_dayoff_2_00000000000',
+        'pst_perfect_day_off_00000',
         'https://images.unsplash.com/photo-1490750967868-88aa4486c946?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'image',
         'image/jpeg',
         2,
-        1002,
+        'usr_demo20000000000000000',
         now(),
-        1002,
+        'usr_demo20000000000000000',
         now()
     ),
     (
-        2007,
+        'pmd_chicago_1_00000000000',
+        'pst_chicago_urban_0000000',
         'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?q=80&w=944&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'image',
         'image/jpeg',
         1,
-        1002,
+        'usr_demo20000000000000000',
         now(),
-        1002,
+        'usr_demo20000000000000000',
         now()
     ),
     (
-        2008,
+        'pmd_moscow_1_00000000000',
+        'pst_moscow_trip_000000000',
         'https://images.unsplash.com/photo-1513326738677-b964603b136d?q=80&w=449&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'image',
         'image/jpeg',
         1,
-        1002,
+        'usr_demo20000000000000000',
         now(),
-        1002,
+        'usr_demo20000000000000000',
         now()
     ),
     (
-        2008,
+        'pmd_moscow_2_00000000000',
+        'pst_moscow_trip_000000000',
         'https://images.unsplash.com/photo-1547448415-e9f5b28e570d?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'image',
         'image/jpeg',
         2,
-        1002,
+        'usr_demo20000000000000000',
         now(),
-        1002,
+        'usr_demo20000000000000000',
         now()
     ),
     (
-        2009,
+        'pmd_mongol_1_00000000000',
+        'pst_mongol_trip_000000000',
         'https://plus.unsplash.com/premium_photo-1692895424097-a195cfa8a0c6?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8bW9uZ29saWF8ZW58MHx8MHx8fDA%3D',
         'image',
         'image/jpeg',
         1,
-        1002,
+        'usr_demo20000000000000000',
         now(),
-        1002,
+        'usr_demo20000000000000000',
         now()
     );
 
--- Media for User 3 posts
+-- Media for User 3 posts (usr_demo30000000000000000)
 INSERT INTO post_media (
+    id,
     post_id,
     media_url,
     media_type,
@@ -725,108 +749,115 @@ INSERT INTO post_media (
 )
 VALUES
     (
-        2010,
+        'pmd_germany_1_00000000000',
+        'pst_germany_holiday_00000',
         'https://plus.unsplash.com/premium_photo-1661962435210-e6cdbb2cbeb4?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'image',
         'image/jpeg',
         1,
-        1003,
+        'usr_demo30000000000000000',
         now(),
-        1003,
+        'usr_demo30000000000000000',
         now()
     ),
     (
-        2010,
+        'pmd_germany_2_00000000000',
+        'pst_germany_holiday_00000',
         'https://images.unsplash.com/photo-1554072675-66db59dba46f?q=80&w=873&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'image',
         'image/jpeg',
         2,
-        1003,
+        'usr_demo30000000000000000',
         now(),
-        1003,
+        'usr_demo30000000000000000',
         now()
     ),
     (
-        2010,
+        'pmd_germany_3_00000000000',
+        'pst_germany_holiday_00000',
         'https://plus.unsplash.com/premium_photo-1719843507795-585f21debf7f?q=80&w=871&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'image',
         'image/jpeg',
         3,
-        1003,
+        'usr_demo30000000000000000',
         now(),
-        1003,
+        'usr_demo30000000000000000',
         now()
     ),
     (
-        2011,
+        'pmd_france_1_00000000000',
+        'pst_france_business_00000',
         'https://mapster-test-123.oss-cn-shanghai.aliyuncs.com/1112659-hd_720_720_25fps.mp4',
         'video',
         'video/mp4',
         1,
-        1003,
+        'usr_demo30000000000000000',
         now(),
-        1003,
+        'usr_demo30000000000000000',
         now()
     ),
     (
-        2011,
+        'pmd_france_2_00000000000',
+        'pst_france_business_00000',
         'https://images.unsplash.com/photo-1503917988258-f87a78e3c995?q=80&w=387&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'image',
         'image/jpeg',
-        1,
-        1003,
+        2,
+        'usr_demo30000000000000000',
         now(),
-        1003,
+        'usr_demo30000000000000000',
         now()
     ),
     (
-        2012,
+        'pmd_spain_1_00000000000',
+        'pst_spain_travel_0000000',
         'https://plus.unsplash.com/premium_photo-1716138192476-f34e85ad43c2?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'image',
         'image/jpeg',
         1,
-        1003,
+        'usr_demo30000000000000000',
         now(),
-        1003,
+        'usr_demo30000000000000000',
         now()
     ),
     (
-        2013,
+        'pmd_greece_1_00000000000',
+        'pst_greece_island_00000',
         'https://images.unsplash.com/photo-1613395877344-13d4a8e0d49e?q=80&w=435&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'image',
         'image/jpeg',
         1,
-        1003,
+        'usr_demo30000000000000000',
         now(),
-        1003,
+        'usr_demo30000000000000000',
         now()
     ),
     (
-        2013,
+        'pmd_greece_2_00000000000',
+        'pst_greece_island_00000',
         'https://plus.unsplash.com/premium_photo-1661964149725-fbf14eabd38c?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         'image',
         'image/jpeg',
         2,
-        1003,
+        'usr_demo30000000000000000',
         now(),
-        1003,
+        'usr_demo30000000000000000',
         now()
     ),
     (
-        2013,
+        'pmd_greece_3_00000000000',
+        'pst_greece_island_00000',
         'https://mapster-test-123.oss-cn-shanghai.aliyuncs.com/6555288-hd_1920_1080_25fps.mp4',
         'video',
         'video/mp4',
         3,
-        1003,
+        'usr_demo30000000000000000',
         now(),
-        1003,
+        'usr_demo30000000000000000',
         now()
     );
-
-
 -- ============================================
--- Posts for demo1 (user_id = 1111)
+-- Posts for demo1 (usr_demo00000000000000000)
 -- ============================================
 
 INSERT INTO post (
@@ -847,10 +878,10 @@ INSERT INTO post (
     mtime
 )
 VALUES
--- Post 1
+-- Post 1: Seoul
 (
-    3001,
-    1111,
+    'pst_seoul_streets_000000',
+    'usr_demo00000000000000000',
     'Exploring the Streets of Seoul',
     'My trip to Seoul felt like stepping into a vibrant blend of tradition and modern life.
 Colorful markets, futuristic skyscrapers, cozy cafes — everything was full of energy.
@@ -872,16 +903,16 @@ Seoul left me inspired and eager to return for a longer adventure.',
     55000,
     2400,
     11200,
-    0,
+    'usr_demo00000000000000000',
     now(),
-    0,
+    'usr_demo00000000000000000',
     now()
 ),
 
--- Post 2
+-- Post 2: Turkey
 (
-    3002,
-    1111,
+    'pst_turkey_warm_000000000',
+    'usr_demo00000000000000000',
     'Моё тёплое путешествие в Турцию',
     'Турция встретила меня солнцем, ароматами специй и невероятным гостеприимством.
 Улицы Стамбула полны жизни: продавцы, чайные, мечети, голуби на площадях.
@@ -900,16 +931,16 @@ Seoul left me inspired and eager to return for a longer adventure.',
     8200,
     630,
     2900,
-    0,
+    'usr_demo00000000000000000',
     now(),
-    0,
+    'usr_demo00000000000000000',
     now()
 ),
 
--- Post 3
+-- Post 3: Lake morning
 (
-    3003,
-    1111,
+    'pst_lake_morning_000000000',
+    'usr_demo00000000000000000',
     'Ein ruhiger Morgen am See',
     'Der Morgen am See war voller Ruhe.
 Die Luft war frisch, und leichter Nebel schwebte über dem Wasser.
@@ -929,16 +960,16 @@ Solche Augenblicke erinnern daran, wie wichtig es ist, manchmal einfach tief dur
     2400,
     180,
     760,
-    0,
+    'usr_demo00000000000000000',
     now(),
-    0,
+    'usr_demo00000000000000000',
     now()
 ),
 
--- Post 4
+-- Post 4: Japanese autumn
 (
-    3004,
-    1111,
+    'pst_japan_autumn_00000000',
+    'usr_demo00000000000000000',
     '日本の秋の色',
     '日本の秋は本当に魔法のようでした。
 赤と金色の葉が街全体を包み込み、どこを歩いても美しい景色が続きます。
@@ -951,22 +982,22 @@ Solche Augenblicke erinnern daran, wie wichtig es ist, manchmal einfach tief dur
 秋の日本は視覚だけでなく心にも残る体験でした。
 必ずまた訪れたいと思います。',
     FALSE,
-    'https://plus.unsplash.com/premium_photo-1697630321943-413a918eff27?q=80&w=387&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    NULL,
     1,
     FALSE,
     12500,
     840,
     3100,
-    0,
+    'usr_demo00000000000000000',
     now(),
-    0,
+    'usr_demo00000000000000000',
     now()
 ),
 
--- Post 5
+-- Post 5: Countryside weekend
 (
-    3005,
-    1111,
+    'pst_countryside_weekend_00',
+    'usr_demo00000000000000000',
     'A Quiet Weekend in the Countryside',
     'I spent the weekend in a small countryside house surrounded by fields and forests.
 The silence felt calming and refreshing after busy weeks in the city.
@@ -986,212 +1017,104 @@ It was the perfect escape to reset my mind and body.',
     1200,
     95,
     310,
-    0,
+    'usr_demo00000000000000000',
     now(),
-    0,
-    now()
-);
-
--- ============================================
--- Posts for demo1 (user_id = 0)
--- ============================================
-
-INSERT INTO post (
-    id,
-    user_id,
-    title,
-    description,
-    is_published,
-    thumbnail_url,
-    media_count,
-    has_video,
-    like_count,
-    comment_count,
-    saved_count,
-    cid,
-    ctime,
-    mid,
-    mtime
-)
-VALUES
--- Post 1
-(
-    3011,
-    0,
-    'Exploring the Streets of Seoul',
-    'My trip to Seoul felt like stepping into a vibrant blend of tradition and modern life.
-Colorful markets, futuristic skyscrapers, cozy cafes — everything was full of energy.
-I visited ancient palaces and walked through narrow alleys illuminated by warm lanterns.
-Korean cuisine amazed me: spicy, rich, and full of character.
-Street performers filled the air with music near Hongdae.
-Even late at night, the city seemed wide awake and full of life.
-
-I spent hours wandering through small neighborhoods,
-discovering peaceful temples hidden among tall buildings.
-The metro system made traveling easy and fast.
-In the evenings, neon lights reflected beautifully on the wet streets after a light rain.
-I met several friendly locals who recommended unique places to visit.
-Seoul left me inspired and eager to return for a longer adventure.',
-    TRUE,
-    'https://images.unsplash.com/photo-1538485399081-7191377e8241?q=80&w=374&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    3,
-    TRUE,
-    55000,
-    2400,
-    11200,
-    0,
-    now(),
-    0,
-    now()
-),
-
--- Post 2
-(
-    3012,
-    0,
-    'Моё тёплое путешествие в Турцию',
-    'Турция встретила меня солнцем, ароматами специй и невероятным гостеприимством.
-Улицы Стамбула полны жизни: продавцы, чайные, мечети, голуби на площадях.
-Я гулял по Галатскому мосту, наблюдая рыбаков и шумный поток людей.
-Турецкий чай оказался удивительно бодрящим, а баклава — просто волшебной.
-
-Особенно запомнились вечерние прогулки вдоль Босфора.
-Лёгкий ветер, огни на воде и ощущение спокойствия делали этот момент идеальным.
-Я посетил древние улочки, где время словно идёт медленнее.
-Каждый день приносил новые вкусы, эмоции и вдохновение.
-Турция стала местом, куда хочется возвращаться снова и снова.',
-    TRUE,
-    'https://images.unsplash.com/photo-1589561454226-796a8aa89b05?q=80&w=867&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    2,
-    FALSE,
-    8200,
-    630,
-    2900,
-    0,
-    now(),
-    0,
-    now()
-),
-
--- Post 3
-(
-    3013,
-    0,
-    'Ein ruhiger Morgen am See',
-    'Der Morgen am See war voller Ruhe.
-Die Luft war frisch, und leichter Nebel schwebte über dem Wasser.
-Die ersten Sonnenstrahlen spiegelten sich auf der glatten Oberfläche.
-Ich hörte nur das Zwitschern der Vögel und das leise Rascheln der Blätter.
-Es war ein Moment der völligen Stille, weit weg vom Alltag.
-
-Ich ging langsam am Ufer entlang und spürte, wie die klare Luft meine Gedanken ordnete.
-Ein paar Fischer bereiteten ihre Boote vor, freundlich lächelnd.
-Der Duft von Tannen und feuchtem Gras erfüllte die Umgebung.
-Dieser Morgen gab mir neue Energie und innere Ruhe.
-Solche Augenblicke erinnern daran, wie wichtig es ist, manchmal einfach tief durchzuatmen.',
-    TRUE,
-    'https://plus.unsplash.com/premium_photo-1677343209994-8b894e3e55c1?q=80&w=388&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    1,
-    FALSE,
-    2400,
-    180,
-    760,
-    0,
-    now(),
-    0,
-    now()
-),
-
--- Post 4
-(
-    3014,
-    0,
-    '日本の秋の色',
-    '日本の秋は本当に魔法のようでした。
-赤と金色の葉が街全体を包み込み、どこを歩いても美しい景色が続きます。
-静かな神社や庭園では、木々が風に揺れ、心が落ち着きました。
-季節の料理も素晴らしく、特に香ばしい焼き魚と温かいお茶が忘れられません。
-
-小さな村を訪れると、昔ながらの木造の家が並び、
-ゆっくりとした時間が流れていました。
-地元の人々はとても優しく、旅の途中で何度も助けられました。
-秋の日本は視覚だけでなく心にも残る体験でした。
-必ずまた訪れたいと思います。',
-    FALSE,
-    'https://plus.unsplash.com/premium_photo-1697630321943-413a918eff27?q=80&w=387&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    1,
-    FALSE,
-    12500,
-    840,
-    3100,
-    0,
-    now(),
-    0,
-    now()
-),
-
--- Post 5
-(
-    3015,
-    0,
-    'A Quiet Weekend in the Countryside',
-    'I spent the weekend in a small countryside house surrounded by fields and forests.
-The silence felt calming and refreshing after busy weeks in the city.
-Birds greeted the morning with soft melodies.
-I enjoyed slow breakfasts and long walks on dirt paths.
-The cool breeze carried the scent of pine and fresh earth.
-
-In the afternoons, I read books while sitting near the window, watching sunlight shift across the floor.
-Evenings were filled with warm tea and peaceful stillness.
-Without noise or rush, every hour felt meaningful.
-The countryside reminded me how simple moments can be the most fulfilling.
-It was the perfect escape to reset my mind and body.',
-    TRUE,
-    'https://images.unsplash.com/photo-1530878902700-5ad4f9e4c318?q=80&w=1034&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    2,
-    FALSE,
-    1200,
-    95,
-    310,
-    0,
-    now(),
-    0,
+    'usr_demo00000000000000000',
     now()
 );
 
 -- ======================================
 -- User Follows
 -- ======================================
-INSERT INTO user_follow (follower_id, following_id) VALUES
-(0, 1001),
-(0, 1002),
-(0, 1111),
--- Followers of root (0):
-(1003, 0),
-(1111, 0),
+INSERT INTO user_follow (follower_id, following_id, ctime) VALUES
+-- System root follows others
+('usr_sys_root_0000000000000', 'usr_demo10000000000000000', NOW()),
+('usr_sys_root_0000000000000', 'usr_demo20000000000000000', NOW()),
+('usr_sys_root_0000000000000', 'usr_demo00000000000000000', NOW()),
 
--- stacy.up (1001) follows
-(1001, 1002),
-(1001, 1003),
-(1001, 1111),
+-- Others follow root
+('usr_demo30000000000000000', 'usr_sys_root_0000000000000', NOW()),
+('usr_demo00000000000000000', 'usr_sys_root_0000000000000', NOW()),
 
--- kristina_23 (1002) follows
-(1002, 1001),
-(1002, 1003),
+-- stacy.up (demo1) follows
+('usr_demo10000000000000000', 'usr_demo20000000000000000', NOW()),
+('usr_demo10000000000000000', 'usr_demo30000000000000000', NOW()),
+('usr_demo10000000000000000', 'usr_demo00000000000000000', NOW()),
 
--- john_funk (1003) follows
-(1003, 1001),
+-- kristina_23 (demo2) follows
+('usr_demo20000000000000000', 'usr_demo10000000000000000', NOW()),
+('usr_demo20000000000000000', 'usr_demo30000000000000000', NOW()),
 
--- demo1 (1111) follows
-(1111, 1001),
-(1111, 1002);
+-- john_funk (demo3) follows
+('usr_demo30000000000000000', 'usr_demo10000000000000000', NOW()),
+
+-- demo0 follows
+('usr_demo00000000000000000', 'usr_demo10000000000000000', NOW()),
+('usr_demo00000000000000000', 'usr_demo20000000000000000', NOW());
+
+-- ==========================================================
+-- POST LIKES
+-- ==========================================================
+INSERT INTO post_like (post_id, user_id, ctime) VALUES
+-- User 1 liked other posts
+('pst_japan_inspiring_00000', 'usr_demo10000000000000000', NOW()),
+('pst_perfect_day_off_00000', 'usr_demo10000000000000000', NOW()),
+('pst_chicago_urban_0000000', 'usr_demo10000000000000000', NOW()),
+
+-- User 2 liked User 1 & 3 posts
+('pst_shanghai_trip_0000000', 'usr_demo20000000000000000', NOW()),
+('pst_morgenwanderung_0000', 'usr_demo20000000000000000', NOW()),
+('pst_germany_holiday_00000', 'usr_demo20000000000000000', NOW()),
+('pst_france_business_00000', 'usr_demo20000000000000000', NOW()),
+
+-- User 3 liked User 1 & 2 posts
+('pst_shanghai_trip_0000000', 'usr_demo30000000000000000', NOW()),
+('pst_japan_trip_000000000', 'usr_demo30000000000000000', NOW()),
+('pst_japan_inspiring_00000', 'usr_demo30000000000000000', NOW()),
+('pst_perfect_day_off_00000', 'usr_demo30000000000000000', NOW());
 
 -- ======================================
 -- User Stats
 -- ======================================
 INSERT INTO user_stats (user_id, posts_count, followers_count, following_count) VALUES
-(0, 5, 2, 3), -- root
-(1001, 5, 3, 3), -- stacy.up: 3 followers, 3 following
-(1002, 2, 2, 2), -- kristina_23: 2 followers, 2 following
-(1003, 1, 2, 1), -- john_funk: 2 followers, 1 following
-(1111, 5, 1, 2); -- demo1: 1 follower, 2 following
+('usr_sys_root_0000000000000', 0, 2, 3), -- root
+('usr_demo10000000000000000', 3, 3, 3), -- stacy.up: 3 posts, 3 followers, 3 following
+('usr_demo20000000000000000', 5, 2, 2), -- kristina_23: 5 posts, 2 followers, 2 following
+('usr_demo30000000000000000', 4, 2, 1), -- john_funk: 4 posts, 2 followers, 1 following
+('usr_demo00000000000000000', 5, 1, 3); -- demo0: 5 posts, 1 follower, 3 following
+
+-- ==========================================================
+-- COMMENTS
+-- ==========================================================
+-- Comments for shanghai trip
+INSERT INTO comment (id, user_id, entity_type, entity_id, parent_id, text, cid, ctime, mid, mtime)
+VALUES
+('cmt_shanghai_1_00000000000', 'usr_demo20000000000000000', 'Post', 'pst_shanghai_trip_0000000', NULL, 'Wow, amazing trip! Shanghai looks incredible.', 'usr_demo20000000000000000', NOW(), 'usr_demo20000000000000000', NOW()),
+('cmt_shanghai_2_00000000000', 'usr_demo30000000000000000', 'Post', 'pst_shanghai_trip_0000000', NULL, 'I love the description, makes me want to visit!', 'usr_demo30000000000000000', NOW(), 'usr_demo30000000000000000', NOW()),
+-- Reply to the first comment
+('cmt_shanghai_3_00000000000', 'usr_demo10000000000000000', 'Post', 'pst_shanghai_trip_0000000', 'cmt_shanghai_1_00000000000', 'Thanks! It was unforgettable.', 'usr_demo10000000000000000', NOW(), 'usr_demo10000000000000000', NOW()),
+
+-- Comments for japan inspiring
+('cmt_japan_1_00000000000', 'usr_demo10000000000000000', 'Post', 'pst_japan_inspiring_00000', NULL, 'Japan looks amazing! I need to plan a trip there.', 'usr_demo10000000000000000', NOW(), 'usr_demo10000000000000000', NOW()),
+('cmt_japan_2_00000000000', 'usr_demo30000000000000000', 'Post', 'pst_japan_inspiring_00000', NULL, 'Great details about the food culture!', 'usr_demo30000000000000000', NOW(), 'usr_demo30000000000000000', NOW()),
+
+-- Comments for germany holiday
+('cmt_germany_1_00000000000', 'usr_demo20000000000000000', 'Post', 'pst_germany_holiday_00000', NULL, 'Germany seems so relaxing and full of history.', 'usr_demo20000000000000000', NOW(), 'usr_demo20000000000000000', NOW()),
+('cmt_germany_2_00000000000', 'usr_demo10000000000000000', 'Post', 'pst_germany_holiday_00000', NULL, 'I want to see the castles too!', 'usr_demo10000000000000000', NOW(), 'usr_demo10000000000000000', NOW());
+
+-- ==========================================================
+-- COMMENT MEDIA 
+-- ==========================================================
+-- Images for comment shanghai_1
+INSERT INTO comment_media (id, comment_id, media_url, media_type, mime_type, width, height, file_size, sort_order, cid, ctime, mid, mtime)
+VALUES
+('cmm_shanghai1_1_000000000', 'cmt_shanghai_1_00000000000', 'https://images.unsplash.com/photo-1593642532973-d31b6557fa68?q=80&w=640&auto=format&fit=crop', 'image', 'image/jpeg', 640, 480, 120000, 0, 'usr_demo20000000000000000', NOW(), 'usr_demo20000000000000000', NOW()),
+
+-- Images for comment shanghai_2
+('cmm_shanghai2_1_000000000', 'cmt_shanghai_2_00000000000', 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=640&auto=format&fit=crop', 'image', 'image/jpeg', 640, 480, 150000, 0, 'usr_demo30000000000000000', NOW(), 'usr_demo30000000000000000', NOW()),
+
+-- Images for comment japan_1
+('cmm_japan1_1_000000000', 'cmt_japan_1_00000000000', 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=640&auto=format&fit=crop', 'image', 'image/jpeg', 640, 480, 140000, 0, 'usr_demo10000000000000000', NOW(), 'usr_demo10000000000000000', NOW()),
+
+-- Images for comment germany_1
+('cmm_germany1_1_000000000', 'cmt_germany_1_00000000000', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=640&auto=format&fit=crop', 'image', 'image/jpeg', 640, 480, 130000, 0, 'usr_demo20000000000000000', NOW(), 'usr_demo20000000000000000', NOW());
