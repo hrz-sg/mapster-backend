@@ -1,10 +1,12 @@
 use crate::ctx::Ctx;
 use crate::model::base::{self, DbBmc};
 use crate::model::post_media::PostMedia;
-use crate::model::user::UserForPreview;
+use crate::model::user::{UserForPreview, UserPublicIden};
 use crate::model::{ModelManager, Result};
 use modql::field::Fields;
 use modql::filter::{FilterNodes, ListOptions, OpValsBool, OpValsInt64, OpValsString};
+use sea_query::{Expr, Iden, PostgresQueryBuilder, Query};
+use sea_query_binder::SqlxBinder;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
@@ -13,7 +15,7 @@ use sqlx::FromRow;
 #[derive(Debug, Clone, Fields, FromRow, Serialize)]
 pub struct Post {
     pub id: String,
-    pub user_id: String,
+    pub owner_id: String,
     pub title: String,
     pub description: String,
     pub is_published: bool,
@@ -52,7 +54,6 @@ pub struct PostDetail {
 
 #[derive(Fields, Deserialize)]
 pub struct PostForCreate {
-    pub user_id: String,
     pub title: String,
     pub description: String,
     pub is_published: Option<bool>,
@@ -74,7 +75,7 @@ pub struct PostForUpdate {
 #[derive(FilterNodes, Deserialize, Default, Debug)]
 pub struct PostFilter {
     id: Option<OpValsString>,
-    user_id: Option<OpValsString>,
+    owner_id: Option<OpValsString>,
     title: Option<OpValsString>,
     is_published: Option<OpValsBool>,
     has_video: Option<OpValsBool>,
@@ -82,9 +83,9 @@ pub struct PostFilter {
 }
 
 impl PostFilter {
-    pub fn by_user(user_id: &str) -> Self {
+    pub fn by_user(owner_id: &str) -> Self {
         Self {
-            user_id: Some(user_id.into()),
+            owner_id: Some(owner_id.into()),
             id: None,
             title: None,
             is_published: None,
@@ -96,6 +97,7 @@ impl PostFilter {
 
 #[derive(Debug, Clone, FromRow)]
 pub struct PostWithUser {
+    // Post
     pub id: String,
     pub title: String,
     pub thumbnail_url: Option<String>,
@@ -104,26 +106,103 @@ pub struct PostWithUser {
     pub like_count: i64,
     pub comment_count: i64,
     pub saved_count: i64,
+
+    // User
     pub user_id: String,
     pub username: String,
     pub avatar_url: Option<String>,
 }
 // endregion: ---- Post Types
 
+// region: ---- PostIden
+#[derive(Iden)]
+pub enum PostIden {
+    #[iden = "post"]
+    Table,
+    #[iden = "id"]
+    Id,
+    #[iden = "user_id"]
+    UserId,
+    #[iden = "title"]
+    Title,
+    #[iden = "description"]
+    Description,
+    #[iden = "cover_media_url"]
+    CoverMediaUrl,
+    #[iden = "media_count"]
+    MediaCount,
+    #[iden = "like_count"]
+    LikeCount,
+}
+
+// endregion: ---- PostIden
+
 // region: ---- PostBmc
 pub struct PostBmc;
 
 impl DbBmc for PostBmc {
     const TABLE: &'static str = "post";
+
+    fn has_owner_id() -> bool {
+        true
+    }
 }
 
 impl PostBmc {
+    pub async fn exists(ctx: &Ctx, mm: &ModelManager, post_id: &str) -> Result<bool> {
+        let filter = vec![PostFilter {
+            id: Some(post_id.into()),
+            ..Default::default()
+        }];
+        
+        base::exists::<Self, _>(ctx, mm, filter).await
+    }
+
     pub async fn create(ctx: &Ctx, mm: &ModelManager, post_c: PostForCreate) -> Result<String> {
         base::create::<Self, _>(ctx, mm, post_c).await
     }
 
     pub async fn get(ctx: &Ctx, mm: &ModelManager, id: &str) -> Result<Post> {
         base::get::<Self, _>(ctx, mm, id).await
+    }
+
+    /// --- Get multiple posts by ids
+    pub async fn get_many_with_users(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        ids: Vec<&str>,
+    ) -> Result<Vec<PostWithUser>> {
+        if ids.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let mut query = Query::select();
+        
+        query
+            .columns([
+                (PostIden::Table, PostIden::Id),
+                (PostIden::Table, PostIden::Title),
+                (PostIden::Table, PostIden::MediaCount),
+                (PostIden::Table, PostIden::UserId),
+            ])
+            .expr(Expr::col((UserPublicIden::Table, UserPublicIden::Username)))
+            .expr(Expr::col((UserPublicIden::Table, UserPublicIden::AvatarUrl)))
+            .from(PostIden::Table)
+            .inner_join(
+                UserPublicIden::Table,
+                Expr::col((PostIden::Table, PostIden::UserId))
+                    .equals((UserPublicIden::Table, UserPublicIden::Id)),
+            )
+            .and_where(
+                Expr::col((Self::TABLE, PostIden::Id))
+                    .is_in(ids.iter().copied())
+            );
+            
+        let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
+        let sqlx_query = sqlx::query_as_with::<_, PostWithUser, _>(&sql, values);
+        let posts = mm.dbx().fetch_all(sqlx_query).await?;
+
+        Ok(posts)
     }
 
     pub async fn list(
@@ -160,6 +239,8 @@ mod tests {
 
     use super::*;
     use anyhow::{Ok, Result};
+    // type Error = Box<dyn std::error::Error>;
+    // type Result<T> = core::result::Result<T, Error>;
     use serde_json::json;
     use serial_test::serial;
 
@@ -183,7 +264,6 @@ mod tests {
 
         // -- Exec
         let post_c = PostForCreate {
-            user_id: ctx.user_id().to_string(),
             title: fx_title.to_string(),
             description: fx_description.to_string(),
             is_published: fx_is_published,
@@ -199,7 +279,7 @@ mod tests {
         let post = PostBmc::get(&ctx, &mm, &id).await?;
         assert_eq!(post.title, fx_title);
         assert_eq!(post.description, fx_description);
-        assert_eq!(post.user_id, ctx.user_id());
+        assert_eq!(post.owner_id, ctx.user_id());
 
         // -- Clean
         PostBmc::delete(&ctx, &mm, &id).await?;

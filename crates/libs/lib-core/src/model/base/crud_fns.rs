@@ -9,12 +9,25 @@ use crate::model::base::{
 use crate::model::{Error, Result};
 use modql::field::HasSeaFields;
 use modql::filter::{FilterGroups, ListOptions};
-use sea_query::{Condition, Expr, PostgresQueryBuilder, Query};
+use sea_query::{Condition, Expr, ExprTrait, IntoIden, PostgresQueryBuilder, Query, Value};
 use sea_query_binder::SqlxBinder;
 use sqlx::FromRow;
 use sqlx::Row;
 use sqlx::postgres::PgRow;
 use uuid::Uuid;
+
+pub async fn exists<MC, F>(
+    ctx: &Ctx,
+    mm: &ModelManager,
+    filter: F,
+) -> Result<bool>
+where
+    MC: DbBmc,
+    F: Into<FilterGroups>,
+{
+    let count = count::<MC, F>(ctx, mm, Some(filter)).await?;
+    Ok(count > 0)
+}
 
 pub async fn create<MC, E>(ctx: &Ctx, mm: &ModelManager, data: E) -> Result<String>
 where
@@ -44,6 +57,40 @@ where
     let (id,) = mm.dbx().fetch_one(sqlx_query).await?;
 
     Ok(id)
+}
+
+//// Create entities without IDs
+pub async fn create_without_id<MC, E>(
+    ctx: &Ctx, 
+    mm: &ModelManager, 
+    data: E
+) -> Result<()>
+where
+    MC: DbBmc,
+    E: HasSeaFields,
+{
+    let user_id = ctx.user_id();
+
+    // -- Extract fields (name / sea-query value expression)
+    let mut fields = data.not_none_sea_fields();
+    prep_fields_for_create::<MC>(&mut fields, user_id);
+
+    // -- Build query
+    let (columns, sea_values) = fields.for_sea_insert();
+    let mut query = Query::insert();
+    query
+        .into_table(MC::table_ref())
+        .columns(columns)
+        .values(sea_values)?;
+
+    // -- Exec query
+    let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
+    let sqlx_query = sqlx::query_with(&sql, values);
+    
+    // -- Execute
+    mm.dbx().execute(sqlx_query).await?;
+
+    Ok(())
 }
 
 pub async fn create_many<MC, E>(ctx: &Ctx, mm: &ModelManager, data: Vec<E>) -> Result<Vec<String>>
@@ -113,6 +160,31 @@ where
     Ok(entity)
 }
 
+pub async fn get_many<MC, E>(_ctx: &Ctx, mm: &ModelManager, ids: Vec<&str>) -> Result<Vec<E>>
+where
+    MC: DbBmc,
+    E: for<'r> FromRow<'r, PgRow> + Unpin + Send,
+    E: HasSeaFields,
+{
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // -- Build query
+    let mut query = Query::select();
+    query
+        .from(MC::table_ref())
+        .columns(E::sea_column_refs())
+        .and_where(Expr::col(CommonIden::Id).is_in(ids.iter().copied()));
+
+    // -- Exec query
+    let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
+    let sqlx_query = sqlx::query_as_with::<_, E, _>(&sql, values);
+    let entities = mm.dbx().fetch_all(sqlx_query).await?;
+
+    Ok(entities)
+}
+
 pub async fn first<MC, E, F>(
     ctx: &Ctx,
     mm: &ModelManager,
@@ -147,6 +219,28 @@ where
     list::<MC, E, F>(ctx, mm, filter, Some(list_options))
         .await
         .map(|item| item.into_iter().next())
+}
+
+pub async fn first_by_composite_key<MC, E, F>(
+    ctx: &Ctx,
+    mm: &ModelManager,
+    filter: Option<F>,
+) -> Result<Option<E>>
+where
+    MC: DbBmc,
+    F: Into<FilterGroups>,
+    E: for<'r> FromRow<'r, PgRow> + Unpin + Send,
+    E: HasSeaFields,
+{
+    let list_options = ListOptions {
+        limit: Some(1),
+        offset: None,
+        order_bys: None, // with no sort
+    };
+
+    list::<MC, E, F>(ctx, mm, filter, Some(list_options))
+        .await
+        .map(|items| items.into_iter().next())
 }
 
 pub async fn list<MC, E, F>(

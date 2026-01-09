@@ -8,6 +8,10 @@ pub mod handlers_post;
 pub mod handlers_post_likes;
 pub mod handlers_post_comments;
 
+// --- Journey
+pub mod handlers_journey;
+pub mod handlers_journey_post;
+
 // --- Users
 pub mod handlers_user_profile;
 pub mod handlers_user_follow;

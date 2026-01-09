@@ -47,11 +47,11 @@ pub struct PostMediaForUpdate {
 
 #[derive(FilterNodes, Deserialize, Default, Debug)]
 pub struct PostMediaFilter {
-    id: Option<OpValsString>,
-    post_id: Option<OpValsString>,
-    media_type: Option<OpValsString>,
-    mime_type: Option<OpValsString>,
-    sort_order: Option<OpValsInt64>,
+    pub id: Option<OpValsString>,
+    pub post_id: Option<OpValsString>,
+    pub media_type: Option<OpValsString>,
+    pub mime_type: Option<OpValsString>,
+    pub sort_order: Option<OpValsInt64>,
 }
 
 #[derive(Iden)]

@@ -3,12 +3,18 @@
 mod base;
 mod error;
 mod modql_utils;
-mod store;
+pub(crate) mod store;
 
 pub mod post;
 pub mod post_media;
 pub mod post_like;
 pub mod post_comment;
+
+pub mod journey;
+pub mod journey_save;
+pub mod journey_forward;
+pub mod journey_post;
+
 pub mod user;
 pub mod user_stats;
 pub mod user_follow;

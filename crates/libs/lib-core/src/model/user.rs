@@ -118,8 +118,13 @@ impl UserBy for UserForPreview {}
 // UserIden does not have to be exhaustive, but just have the columns
 #[derive(Iden)]
 pub(in crate::model) enum UserPublicIden {
+    #[iden = "user"]
+    Table,
+    #[iden = "id"]
     Id,
+    #[iden = "username"]
     Username,
+    #[iden = "avatar_url"]
     AvatarUrl,
 }
 

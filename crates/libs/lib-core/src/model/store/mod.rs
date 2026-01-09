@@ -1,6 +1,6 @@
 // region: ---- Modules
 
-pub(in crate::model) mod dbx;
+pub mod dbx;
 
 use crate::config::core_config;
 use sqlx::postgres::PgPoolOptions;

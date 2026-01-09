@@ -87,7 +87,6 @@ impl PostService {
             ctx,
             &mm_txn,
             PostForCreate {
-                user_id: ctx.user_id().to_string(),
                 title,
                 description,
                 is_published: Some(true),
@@ -123,7 +122,7 @@ impl PostService {
         Ok(post_id)
     }
 
-    // --- Get post details
+    /// --- Get post details
     pub async fn get_post_detail_by_id(
         ctx: &Ctx,
         mm: &ModelManager,
@@ -133,7 +132,7 @@ impl PostService {
         let post = PostBmc::get(ctx, mm, post_id).await?;
 
         // -- Get Post author
-        let user: User = UserBmc::get(ctx, mm, &post.user_id).await?;
+        let user: User = UserBmc::get(ctx, mm, &post.owner_id).await?;
 
         // -- Get all Post Medias
         let medias = PostMediaBmc::list_by_post(ctx, mm, post_id).await?;
@@ -162,7 +161,7 @@ impl PostService {
         mm: &ModelManager
     ) -> Result<Vec<PostFeedItem>> {
         let posts = PostBmc::list(ctx, mm, None, None).await?;
-        let user_ids: Vec<String> = posts.iter().map(|p| p.user_id.clone()).collect();
+        let user_ids: Vec<String> = posts.iter().map(|p| p.owner_id.clone()).collect();
 
         let users = UserBmc::list_by_ids(ctx, mm, &user_ids).await?;
         let user_map: HashMap<String, UserForPreview> = users 
@@ -173,10 +172,10 @@ impl PostService {
         let feed = posts
             .into_iter()
             .map(|post| {
-                let user = user_map.get(&post.user_id);
+                let user = user_map.get(&post.owner_id);
                 let author = user.map_or(
                     UserForPreview {
-                        id: post.user_id,
+                        id: post.owner_id,
                         username: "Unknown".into(),
                         avatar_url: None,
                     },
@@ -224,10 +223,10 @@ impl PostService {
 
         // -- Create DTO
         let feed = posts.into_iter().map(|post| {
-            let user = user_map.get(&post.user_id);
+            let user = user_map.get(&post.owner_id);
             let author = user.map_or(
                 UserForPreview {
-                    id: post.user_id,
+                    id: post.owner_id,
                     username: "Unknown".into(),
                     avatar_url: None,
                 },

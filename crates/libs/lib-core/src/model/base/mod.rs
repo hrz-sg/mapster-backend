@@ -27,6 +27,7 @@ const LIST_LIMIT_MAX: i64 = 5000;
 pub enum CommonIden {
     Id,
     OwnerId,
+    UserId,
 }
 
 #[derive(Iden)]
@@ -35,6 +36,15 @@ pub enum TimestampIden {
     Ctime,
     Mid,
     Mtime,
+}
+
+// Types for timesteps
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TimestampType {
+    Full,        // cid, ctime, mid, mtime
+    CtimeOnly,   // only ctime
+    CtimeMtime,  // ctime, mtime
+    None,        // no timesteps at all
 }
 
 // endregion: --- SeaQuery Idens
@@ -55,10 +65,10 @@ pub trait DbBmc {
 
     /// Specifies that the table for this Bmc has timestamps (cid, ctime, mid, mtime) columns.
     /// This will allow the code to update those as needed.
-    ///
-    /// default: true
-    fn has_timestamps() -> bool {
-        true
+    /// Type of timestamp fields (only used if has_timestamps() == true).
+    /// default: Full
+    fn timestamp_fields() -> TimestampType {
+        TimestampType::Full // all fields by default
     }
 
     /// Specifies if the entity table managed by this BMC
@@ -69,6 +79,18 @@ pub trait DbBmc {
         false
     }
 
+    /// Specifies if the entity table
+    /// has an `user_id` column that needs to be set on create (by default ctx.user_id).
+    ///
+    /// default: false
+    fn has_user_id() -> bool {
+        false
+    }
+
+    /// Specifies that the table for this Bmc has id column.
+    /// This will allow the code to generate id as needed.
+    ///
+    /// default: true
     fn has_id() -> bool { 
         true
     }

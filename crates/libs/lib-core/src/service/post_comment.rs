@@ -105,10 +105,10 @@ impl PostCommentService {
         comment_id: &str,
         text: String,
     ) -> Result<PostComment> {
-        // Check if the comment exists
+        // -- Check if the comment exists
         let comment = PostCommentBmc::get(ctx, mm, comment_id).await?;
 
-        // Check permissions
+        // -- Check permissions
         if comment.user_id != ctx.user_id() {
             return Err(Error::ValidationFail("Permission denied: you are not the owner of the comment".to_string()));
         }

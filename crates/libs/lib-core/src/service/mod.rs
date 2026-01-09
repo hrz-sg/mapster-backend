@@ -8,3 +8,9 @@ mod user;
 mod post_media;
 mod media_storage;
 mod thumbnail;
+mod journey;
+mod journey_post;
+mod journey_save;
+mod journey_forward;
+
+mod error;

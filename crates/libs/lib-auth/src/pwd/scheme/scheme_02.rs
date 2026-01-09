@@ -55,7 +55,9 @@ mod tests {
     use crate::pwd::ContentToHash;
 
     use super::*;
-    use anyhow::Result;
+    // use anyhow::Result;
+    type Error = Box<dyn std::error::Error>;
+    type Result<T> = core::result::Result<T, Error>;
     use uuid::Uuid;
 
     #[test]
