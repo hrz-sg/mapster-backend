@@ -5,8 +5,7 @@ pub fn web_config() -> &'static WebConfig {
     static INSTANCE: OnceLock<WebConfig> = OnceLock::new();
 
     INSTANCE.get_or_init(|| {
-        WebConfig::load_from_env()
-            .unwrap_or_else(|ex| panic!("FATAL - WHILE LOADING CONF - Cause: {ex:?}"))
+        WebConfig::load_from_env().unwrap_or_else(|ex| panic!("FATAL - WHILE LOADING CONF - Cause: {ex:?}"))
     })
 }
 

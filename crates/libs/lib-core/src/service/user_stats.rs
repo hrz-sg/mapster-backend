@@ -1,6 +1,6 @@
 use crate::ctx::Ctx;
+use crate::model::user_stats::{UserProfileStats, UserStatsBmc};
 use crate::model::{ModelManager, Result};
-use crate::model::user_stats::{UserStatsBmc, UserProfileStats};
 
 pub struct UserStatsService;
 

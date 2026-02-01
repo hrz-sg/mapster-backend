@@ -1,16 +1,14 @@
+mod chat;
+pub mod journey;
+pub mod journey_post;
+mod media_storage;
 pub mod post;
-pub mod post_like;
-pub mod post_comment;
+mod post_media;
+mod thumbnail;
+pub mod user;
+pub mod user_follow;
 pub mod user_profile;
 mod user_stats;
-pub mod user_follow;
-mod user;
-mod post_media;
-mod media_storage;
-mod thumbnail;
-mod journey;
-mod journey_post;
-mod journey_save;
-mod journey_forward;
 
 mod error;
+pub use self::error::{Error, Result};

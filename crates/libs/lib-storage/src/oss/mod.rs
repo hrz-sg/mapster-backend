@@ -127,11 +127,7 @@ impl OssClient {
     pub async fn exists(&self, filename: &str) -> Result<bool> {
         info!("{:<12} - Checking if file exists: {}", "OSS", filename);
 
-        match self
-            .client
-            .head_object(&self.bucket_name, filename, None)
-            .await
-        {
+        match self.client.head_object(&self.bucket_name, filename, None).await {
             Ok(_) => Ok(true),
             Err(err) => {
                 let msg = err.to_string();

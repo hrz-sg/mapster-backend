@@ -31,9 +31,9 @@ pub fn get_mime_from_bytes(data: &[u8], filename: &str) -> String {
     }
 
     match &data[0..12] {
-        [0xFF, 0xD8, ..] => "image/jpeg".to_string(), // JPEG
+        [0xFF, 0xD8, ..] => "image/jpeg".to_string(),            // JPEG
         [0x89, b'P', b'N', b'G', ..] => "image/png".to_string(), // PNG
-        [b'G', b'I', b'F', ..] => "image/gif".to_string(), // GIF
+        [b'G', b'I', b'F', ..] => "image/gif".to_string(),       // GIF
         [b'f', b't', b'y', b'p', ..] => "video/mp4".to_string(), // MP4
         _ => get_mime_from_extension(filename),
     }

@@ -16,23 +16,11 @@ pub async fn send_verification_email(to_email: &str, username: &str, token: &str
     let verification_link = create_verification_link(&config.EMAIL_VERIFICATION_BASE_URL, token);
     let placeholders = vec![
         ("{{username}}".to_string(), username.to_string()),
-        (
-            "{{verification_link}}".to_string(),
-            verification_link.to_string(),
-        ),
-        (
-            "{{support_email}}".to_string(),
-            config.SUPPORT_EMAIL.clone(),
-        ),
+        ("{{verification_link}}".to_string(), verification_link.to_string()),
+        ("{{support_email}}".to_string(), config.SUPPORT_EMAIL.clone()),
     ];
 
-    send_email_with_template(
-        to_email,
-        subject,
-        VERIFICATION_EMAIL_TEMPLATE,
-        &placeholders,
-    )
-    .await
+    send_email_with_template(to_email, subject, VERIFICATION_EMAIL_TEMPLATE, &placeholders).await
 }
 
 // helper for Email verification
@@ -45,15 +33,10 @@ fn create_verification_link(base_url: &str, token: &str) -> String {
 pub async fn send_welcome_email(to_email: &str, username: &str) -> Result<()> {
     let config = tmail_config();
     let subject = "Welcome to Mapster";
-    let dashboard_link = config
-        .EMAIL_VERIFICATION_BASE_URL
-        .replace("/verify", "/dashboard");
+    let dashboard_link = config.EMAIL_VERIFICATION_BASE_URL.replace("/verify", "/dashboard");
     let placeholders = vec![
         ("{{username}}".to_string(), username.to_string()),
-        (
-            "{{support_email}}".to_string(),
-            config.SUPPORT_EMAIL.clone(),
-        ),
+        ("{{support_email}}".to_string(), config.SUPPORT_EMAIL.clone()),
         ("{{dashboard_link}}".to_string(), dashboard_link),
     ];
 
@@ -68,10 +51,7 @@ pub async fn send_reset_pwd_email(to_email: &str, reset_link: &str, username: &s
     let placeholders = vec![
         ("{{username}}".to_string(), username.to_string()),
         ("{{reset_link}}".to_string(), reset_link.to_string()),
-        (
-            "{{support_email}}".to_string(),
-            config.SUPPORT_EMAIL.clone(),
-        ),
+        ("{{support_email}}".to_string(), config.SUPPORT_EMAIL.clone()),
     ];
 
     send_email_with_template(to_email, subject, RESET_PWD_EMAIL_TEMPLATE, &placeholders).await
@@ -102,8 +82,7 @@ mod tests {
     #[tokio::test]
     async fn test_send_verification_email_template_ok() {
         init();
-        let result =
-            send_verification_email("test@example.com", "testuser", "test-token-123").await;
+        let result = send_verification_email("test@example.com", "testuser", "test-token-123").await;
 
         assert!(result.is_ok() || result.is_err());
     }
@@ -163,9 +142,7 @@ mod tests {
     #[test]
     fn test_welcome_email_placeholders_ok() {
         init();
-        let dashboard_link = tmail_config()
-            .EMAIL_VERIFICATION_BASE_URL
-            .replace("/verify", "/dashboard");
+        let dashboard_link = tmail_config().EMAIL_VERIFICATION_BASE_URL.replace("/verify", "/dashboard");
 
         // Check if dashboard_link created correctly
         assert!(dashboard_link.contains("/dashboard"));

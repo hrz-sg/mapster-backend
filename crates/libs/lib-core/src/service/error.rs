@@ -1,6 +1,8 @@
-use crate::{model::Error as ModelError};
-use derive_more::From;
+use crate::model;
 use crate::model::store::dbx;
+use derive_more::From;
+use lib_auth::pwd;
+use lib_utils::file;
 use serde::Serialize;
 use serde_with::serde_as;
 
@@ -9,56 +11,74 @@ pub type Result<T> = core::result::Result<T, Error>;
 #[serde_as]
 #[derive(Debug, Serialize, From)]
 pub enum Error {
+    /// --- Login errors
+    LoginUsernameNotFound,
+    LoginUserHasNoPwd,
+    LoginPwdNotMatching,
+
+    /// --- Token errors
+
     /// --- Errors for user
-    EntityNotFound(String),
+    EntityNotFound {
+        entity: &'static str,
+        id: String,
+    },
     EntityAlreadyExists(String),
-    Validation(String),
+    ValidationFailed(String),
     PermissionDenied(String),
 
     /// --- Dbx (transactions)
     #[from]
     Dbx(dbx::Error),
 
+    /// --- Password / Auth errors
+    #[from]
+    Pwd(pwd::Error),
+
     /// --- Technical errors
     Internal,
+
+    /// --- File errors
+    #[from]
+    File(file::Error),
 }
 
 impl Error {
-    pub fn not_found(msg: impl Into<String>) -> Self {
-        Error::EntityNotFound(msg.into())
+    pub fn entity_not_found(entity: &'static str, id: impl Into<String>) -> Self {
+        Error::EntityNotFound { entity, id: id.into() }
     }
-    
+
     pub fn already_exists(msg: impl Into<String>) -> Self {
         Error::EntityAlreadyExists(msg.into())
     }
-    
-    pub fn validation(msg: impl Into<String>) -> Self {
-        Error::Validation(msg.into())
+
+    pub fn validation_failed(msg: impl Into<String>) -> Self {
+        Error::ValidationFailed(msg.into())
     }
-    
+
     pub fn permission_denied(msg: impl Into<String>) -> Self {
         Error::PermissionDenied(msg.into())
     }
 
-    pub fn internal() -> Self { Error::Internal }
+    pub fn internal() -> Self {
+        Error::Internal
+    }
 }
 
 // region:    --- Froms
 
-impl From<ModelError> for Error {
-    fn from(err: ModelError) -> Self {
+impl From<model::Error> for Error {
+    fn from(err: model::Error) -> Self {
         match err {
-            ModelError::EntityNotFound { entity, .. } => 
-                Error::EntityNotFound(format!("{} not found", entity)),
-            
-            ModelError::UniqueViolation { table, .. } => 
-                Error::EntityAlreadyExists(format!("{} already exists", table)),
-                
-            ModelError::Dbx(_) => {
-                Error::Internal
+            model::Error::EntityNotFound { entity, id } => Error::EntityNotFound { entity: entity, id: id },
+
+            model::Error::UniqueViolation { table, .. } => {
+                Error::EntityAlreadyExists(format!("{} already exists", table))
             }
-            
-             _ => Error::Internal,
+
+            model::Error::Dbx(_) => Error::Internal,
+
+            _ => Error::Internal,
         }
     }
 }

@@ -3,24 +3,20 @@
 use crate::ctx::Ctx;
 use crate::model::ModelManager;
 use crate::model::base::{
-    CommonIden, DbBmc, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, prep_fields_for_create,
-    prep_fields_for_update, ids::generate_id_for_table,
+    CommonIden, DbBmc, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, ids::generate_id_for_table, prep_fields_for_create,
+    prep_fields_for_update,
 };
 use crate::model::{Error, Result};
 use modql::field::HasSeaFields;
 use modql::filter::{FilterGroups, ListOptions};
-use sea_query::{Condition, Expr, ExprTrait, IntoIden, PostgresQueryBuilder, Query, Value};
+use sea_query::{Condition, Expr, ExprTrait, IntoIden, OnConflict, PostgresQueryBuilder, Query, Value};
 use sea_query_binder::SqlxBinder;
 use sqlx::FromRow;
 use sqlx::Row;
 use sqlx::postgres::PgRow;
 use uuid::Uuid;
 
-pub async fn exists<MC, F>(
-    ctx: &Ctx,
-    mm: &ModelManager,
-    filter: F,
-) -> Result<bool>
+pub async fn exists<MC, F>(ctx: &Ctx, mm: &ModelManager, filter: F) -> Result<bool>
 where
     MC: DbBmc,
     F: Into<FilterGroups>,
@@ -59,15 +55,20 @@ where
     Ok(id)
 }
 
-//// Create entities without IDs
-pub async fn create_without_id<MC, E>(
-    ctx: &Ctx, 
-    mm: &ModelManager, 
-    data: E
-) -> Result<()>
+/// Inserts a record without generating an ID, ignoring the insert if a conflict occurs
+/// on the specified columns (composite or unique key).
+///
+/// Returns `true` if inserted, `false` if ignored due to conflict.
+pub async fn create_on_conflict<MC, E, I>(
+    ctx: &Ctx,
+    mm: &ModelManager,
+    data: E,
+    conflict_columns: &[I], // for Idens
+) -> Result<bool>
 where
     MC: DbBmc,
     E: HasSeaFields,
+    I: IntoIden + Clone,
 {
     let user_id = ctx.user_id();
 
@@ -81,16 +82,18 @@ where
     query
         .into_table(MC::table_ref())
         .columns(columns)
-        .values(sea_values)?;
+        .values(sea_values)?
+        .on_conflict(OnConflict::columns(conflict_columns.iter().cloned()).do_nothing().to_owned());
 
     // -- Exec query
     let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
     let sqlx_query = sqlx::query_with(&sql, values);
-    
-    // -- Execute
-    mm.dbx().execute(sqlx_query).await?;
 
-    Ok(())
+    // -- Execute
+    let rows_affected = mm.dbx().execute(sqlx_query).await?;
+
+    // -- Return true if inserted, false if conflict
+    Ok(rows_affected > 0)
 }
 
 pub async fn create_many<MC, E>(ctx: &Ctx, mm: &ModelManager, data: Vec<E>) -> Result<Vec<String>>
@@ -110,10 +113,7 @@ where
         let (columns, sea_values) = fields.for_sea_insert();
 
         // Append values for each item
-        query
-            .into_table(MC::table_ref())
-            .columns(columns.clone())
-            .values(sea_values)?;
+        query.into_table(MC::table_ref()).columns(columns.clone()).values(sea_values)?;
     }
 
     query.returning(Query::returning().columns([CommonIden::Id]));
@@ -148,14 +148,10 @@ where
     // -- Exec query
     let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
     let sqlx_query = sqlx::query_as_with::<_, E, _>(&sql, values);
-    let entity = mm
-        .dbx()
-        .fetch_optional(sqlx_query)
-        .await?
-        .ok_or(Error::EntityNotFound {
-            entity: MC::TABLE,
-            id: id.to_string(),
-        })?;
+    let entity = mm.dbx().fetch_optional(sqlx_query).await?.ok_or(Error::EntityNotFound {
+        entity: MC::TABLE,
+        id: id.to_string(),
+    })?;
 
     Ok(entity)
 }
@@ -221,11 +217,7 @@ where
         .map(|item| item.into_iter().next())
 }
 
-pub async fn first_by_composite_key<MC, E, F>(
-    ctx: &Ctx,
-    mm: &ModelManager,
-    filter: Option<F>,
-) -> Result<Option<E>>
+pub async fn first_by_composite_key<MC, E, F>(ctx: &Ctx, mm: &ModelManager, filter: Option<F>) -> Result<Option<E>>
 where
     MC: DbBmc,
     F: Into<FilterGroups>,
@@ -299,10 +291,7 @@ where
 
     let query_str = query.to_string(PostgresQueryBuilder);
 
-    let result = sqlx::query(&query_str)
-        .fetch_one(db)
-        .await
-        .map_err(|_| Error::CountFail)?;
+    let result = sqlx::query(&query_str).fetch_one(db).await.map_err(|_| Error::CountFail)?;
 
     let count: i64 = result.try_get("count").map_err(|_| Error::CountFail)?;
 
@@ -342,15 +331,41 @@ where
     }
 }
 
+pub async fn update_by_filter<MC, E, F>(ctx: &Ctx, mm: &ModelManager, filter: F, data: E) -> Result<u64>
+where
+    MC: DbBmc,
+    E: HasSeaFields,
+    F: Into<FilterGroups>,
+{
+    // -- Prep fields
+    let mut fields = data.not_none_sea_fields();
+    prep_fields_for_update::<MC>(&mut fields, ctx.user_id());
+
+    let fields = fields.for_sea_update();
+
+    // -- Build query
+    let mut query = Query::update();
+    query.table(MC::table_ref()).values(fields);
+
+    let filters: FilterGroups = filter.into();
+    let cond: Condition = filters.try_into()?;
+    query.cond_where(cond);
+
+    // -- Execute
+    let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
+    let sqlx_query = sqlx::query_with(&sql, values);
+    let result = mm.dbx().execute(sqlx_query).await?;
+
+    Ok(result)
+}
+
 pub async fn delete<MC>(_ctx: &Ctx, mm: &ModelManager, id: &str) -> Result<()>
 where
     MC: DbBmc,
 {
     // -- Build query
     let mut query = Query::delete();
-    query
-        .from_table(MC::table_ref())
-        .and_where(Expr::col(CommonIden::Id).eq(id));
+    query.from_table(MC::table_ref()).and_where(Expr::col(CommonIden::Id).eq(id));
 
     // -- Execute query
     let (sql, values) = query.build_sqlx(PostgresQueryBuilder);

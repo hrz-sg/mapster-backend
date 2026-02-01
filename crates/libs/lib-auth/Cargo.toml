@@ -29,3 +29,4 @@ uuid = {version = "1", features = ["v4", "fast-rng"]}
 lazy-regex = "3"
 derive_more = {version = "2.0.1", features = ["from"]}
 enum_dispatch = "0.3.13"
+dotenvy = "0.15"

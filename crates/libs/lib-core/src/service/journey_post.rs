@@ -1,21 +1,18 @@
-use std::collections::HashMap;
-use modql::filter::ListOptions;
-use tracing::{info, error};
 use crate::ctx::Ctx;
-use crate::model::journey_post::{JourneyPost, JourneyPostBmc, JourneyPostFilter, JourneyPostForCreate, JourneyPostForUpdate};
 use crate::model::ModelManager;
+use crate::model::journey::{
+    JourneyPost, JourneyPostBmc, JourneyPostFilter, JourneyPostForCreate, JourneyPostForUpdate,
+};
 use crate::service::error::{Error, Result};
+use modql::filter::ListOptions;
+use std::collections::HashMap;
+use tracing::{error, info};
 
 pub struct JourneyPostService;
 
 impl JourneyPostService {
     /// --- Add post into journey
-    pub async fn add_post_to_journey_end(
-        ctx: &Ctx,
-        mm: &ModelManager,
-        journey_id: &str,
-        post_id: &str,
-    ) -> Result<()> {
+    pub async fn add_post_to_journey_end(ctx: &Ctx, mm: &ModelManager, journey_id: &str, post_id: &str) -> Result<()> {
         info!("Starting to add post: {} to journey: {}", post_id, journey_id);
 
         let mm_txn = mm.new_with_txn()?;
@@ -30,14 +27,11 @@ impl JourneyPostService {
         }
 
         // -- Get posts listed by journey id
-        let current_posts = list_by_journey(ctx, &mm_txn, journey_id).await?;
+        let current_posts = Self::list_by_journey(ctx, &mm_txn, journey_id).await?;
         info!("Journey {} currently has {} posts", journey_id, current_posts.len());
 
         // -- Compute the next order (in the end)
-        let next_order = current_posts
-            .last()
-            .map(|post|post.sort_order + 1)
-            .unwrap_or(0);
+        let next_order = current_posts.last().map(|post| post.sort_order + 1).unwrap_or(0);
         info!("Next order position: {}", next_order);
 
         // -- Prepare data to insert post into journey
@@ -81,7 +75,7 @@ impl JourneyPostService {
         }
 
         // -- Gell all posts in journey
-        let all_posts = list_by_journey(ctx, &mm_txn, journey_id).await?;
+        let all_posts = Self::list_by_journey(ctx, &mm_txn, journey_id).await?;
         info!("Journey {} has {} total posts", journey_id, all_posts.len());
 
         // -- Check validation of new_position
@@ -89,19 +83,20 @@ impl JourneyPostService {
         // New positions: 0..(all_posts.len() - 1)
         if new_position < 0 || new_position >= all_posts.len() as i32 {
             dbx.rollback_txn().await?;
-            error!("Invalid position {} for journey with {} posts", 
-                new_position, all_posts.len());
-            return Err(Error::validation(
-                format!("Invalid position: {}. Must be between 0 and {}", 
-                    new_position, all_posts.len() - 1)
-            ));
+            error!(
+                "Invalid position {} for journey with {} posts",
+                new_position,
+                all_posts.len()
+            );
+            return Err(Error::validation_failed(format!(
+                "Invalid position: {}. Must be between 0 and {}",
+                new_position,
+                all_posts.len() - 1
+            )));
         }
 
         // -- Create new order
-        let mut new_order: Vec<String> = all_posts
-            .iter()
-            .map(|jp| jp.post_id.clone())
-            .collect();
+        let mut new_order: Vec<String> = all_posts.iter().map(|jp| jp.post_id.clone()).collect();
 
         // -- Delete from current position
         new_order.remove(current_jp.sort_order as usize);
@@ -115,10 +110,12 @@ impl JourneyPostService {
         // -- Apply new order
         // TODO: improve
         Self::reorder_posts_in_journey(ctx, &mm_txn, journey_id, new_order).await?;
-        
-        info!("Post {} moved from position {} to {} in journey {}", 
-            post_id, current_jp.sort_order, new_position, journey_id);
-        
+
+        info!(
+            "Post {} moved from position {} to {} in journey {}",
+            post_id, current_jp.sort_order, new_position, journey_id
+        );
+
         // -- Complete transaction
         dbx.commit_txn().await?;
 
@@ -133,91 +130,87 @@ impl JourneyPostService {
         journey_id: &str,
         new_order: Vec<String>,
     ) -> Result<()> {
+        // -- Load current posts once
+        let current_posts = Self::list_by_journey(ctx, mm, journey_id).await?;
+
+        Self::reorder_posts_internal(ctx, mm, journey_id, &current_posts, &new_order).await
+    }
+
+    async fn reorder_posts_internal(
+        ctx: &Ctx,
+        mm: &ModelManager,
+        journey_id: &str,
+        current_posts: &[JourneyPost],
+        new_order: &[String],
+    ) -> Result<()> {
         info!("Reordering {} posts in journey {}", new_order.len(), journey_id);
-        
-        // -- Get posts
-        let current_posts = list_by_journey(&ctx, mm, journey_id).await?;
-        
-        // -- Check validation of new order
-        let unique_ids: HashMap<&String, usize> = new_order.iter()
-            .enumerate()
-            .map(|(i, id)| (id, i))
-            .collect();
 
-        if unique_ids.len() != new_order.len() {
-            error!("Duplicate posts in order list for journey {}", journey_id);
-            return Err(Error::validation("Duplicate posts in order list"));
-        }
-
-        // -- Check if all posts exist
-        let current_post_ids: HashMap<&String, &JourneyPost> = current_posts
-            .iter()
-            .map(|jp| (&jp.post_id, jp))
-            .collect();
-        
-        for post_id in &new_order {
-            if !current_post_ids.contains_key(post_id) {
-                error!("Post {} not found in journey {}", post_id, journey_id);
-                return Err(Error::not_found("Post not found in journey"));
+        // -- Validation: unique ids
+        let mut seen = HashMap::with_capacity(new_order.len());
+        for (idx, post_id) in new_order.iter().enumerate() {
+            if seen.insert(post_id.as_str(), idx).is_some() {
+                return Err(Error::validation_failed("Duplicate posts in order list"));
             }
         }
-        
-        // -- Update posts
-        // TODO: improve complexity
+
+        // -- Build map: post_id -> current JourneyPost
+        let current_map: HashMap<&str, &JourneyPost> =
+            current_posts.iter().map(|jp| (jp.post_id.as_str(), jp)).collect();
+
+        // -- Validate all posts exist
+        if current_map.len() != new_order.len() {
+            return Err(Error::validation_failed(
+                "New order does not match current journey posts",
+            ));
+        }
+
+        // -- Apply updates
         let mut updated = 0;
+
         for (new_position, post_id) in new_order.iter().enumerate() {
-            if let Some(current) = current_posts.iter().find(|jp| &jp.post_id == post_id) {
-                if current.sort_order != new_position as i32 {
-                    let update_data = JourneyPostForUpdate {
-                        sort_order: new_position as i32,
-                    };
-                    JourneyPostBmc::update(&ctx, mm, journey_id, post_id, update_data).await?;
-                    updated += 1;
-                }
+            let current = current_map.get(post_id.as_str()).ok_or_else(|| {
+                Error::validation_failed(format!("Post {} is not part of journey {}", post_id, journey_id))
+            })?;
+
+            let new_position = new_position as i32;
+
+            if current.sort_order != new_position {
+                JourneyPostBmc::update(
+                    ctx,
+                    mm,
+                    journey_id,
+                    post_id,
+                    JourneyPostForUpdate {
+                        sort_order: new_position,
+                    },
+                )
+                .await?;
+
+                updated += 1;
             }
         }
-        
+
         info!("Updated {} post positions in journey {}", updated, journey_id);
+
         Ok(())
     }
+
+    // helper function
+    pub async fn list_by_journey(ctx: &Ctx, mm: &ModelManager, journey_id: &str) -> Result<Vec<JourneyPost>> {
+        // -- Filter by journey_id
+        let filters = Some(vec![JourneyPostFilter {
+            journey_id: Some(journey_id.into()),
+            post_id: None,
+        }]);
+
+        // -- Sort by sort order
+        let list_options = Some(ListOptions {
+            order_bys: Some("sort_order".into()),
+            ..Default::default()
+        });
+
+        let posts = JourneyPostBmc::list(ctx, mm, filters, list_options).await?;
+
+        Ok(posts)
+    }
 }
-
-// region:    --- JourneyPostService helpers
-pub async fn list_by_journey(
-    ctx: &Ctx,
-    mm: &ModelManager,
-    journey_id: &str,
-) -> Result<Vec<JourneyPost>> {
-    // -- Filter by journey_id
-    let filters = Some(vec![JourneyPostFilter {
-        journey_id: Some(journey_id.into()),
-        post_id: None,
-    }]);
-
-    // -- Sort by sort order
-    let list_options = Some(ListOptions {
-        order_bys: Some("sort_order".into()),
-        ..Default::default()
-    });
-
-    let posts = JourneyPostBmc::list(ctx, mm, filters, list_options).await?;
-
-    Ok(posts)
-}
-
-pub async fn list_by_post(
-    ctx: &Ctx,
-    mm: &ModelManager,
-    post_id: &str,
-) -> Result<Vec<JourneyPost>> {
-    // -- Filter by journey_id
-    let filters = Some(vec![JourneyPostFilter {
-        journey_id: None,
-        post_id: Some(post_id.into()),
-    }]);
-
-    let posts = JourneyPostBmc::list(ctx, mm, filters, None).await?;
-
-    Ok(posts)
-}
-// endregion:    --- JourneyPostService helpers

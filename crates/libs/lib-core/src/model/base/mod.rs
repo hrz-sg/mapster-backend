@@ -1,9 +1,9 @@
 // region:    --- Modules
 
 mod crud_fns;
+pub(crate) mod ids;
 mod macros;
 mod utils;
-mod ids;
 
 // -- Flatten hierarchy for user code.
 pub use crud_fns::*;
@@ -41,10 +41,10 @@ pub enum TimestampIden {
 // Types for timesteps
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TimestampType {
-    Full,        // cid, ctime, mid, mtime
-    CtimeOnly,   // only ctime
-    CtimeMtime,  // ctime, mtime
-    None,        // no timesteps at all
+    Full,       // cid, ctime, mid, mtime
+    CtimeOnly,  // only ctime
+    CtimeMtime, // ctime, mtime
+    None,       // no timesteps at all
 }
 
 // endregion: --- SeaQuery Idens
@@ -91,7 +91,7 @@ pub trait DbBmc {
     /// This will allow the code to generate id as needed.
     ///
     /// default: true
-    fn has_id() -> bool { 
+    fn has_id() -> bool {
         true
     }
 }

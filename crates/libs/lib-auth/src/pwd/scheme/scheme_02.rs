@@ -55,19 +55,31 @@ mod tests {
     use crate::pwd::ContentToHash;
 
     use super::*;
-    // use anyhow::Result;
     type Error = Box<dyn std::error::Error>;
     type Result<T> = core::result::Result<T, Error>;
     use uuid::Uuid;
 
+    use dotenvy::dotenv;
+
+    static INIT: std::sync::Once = std::sync::Once::new();
+
+    fn setup_env() {
+        INIT.call_once(|| {
+            dotenv().ok();
+        });
+    }
+
     #[test]
     fn test_scheme_02_hash_into_b64u_ok() -> Result<()> {
+        setup_env();
+
         // -- Setup & Fixtures
         let fx_to_hash = ContentToHash {
             content: "hello world".to_string(),
             salt: Uuid::parse_str("f05e8961-d6ad-4086-9e78-a6de065e5453")?,
         };
-        let fx_res = "$argon2id$v=19$m=19456,t=2,p=1$8F6JYdatQIaeeKbeBl5UUw$TaRnmmbDdQ1aTzk2qQ2yQzPQoZfnKqhrfuTH/TRP5V4";
+        let fx_res =
+            "$argon2id$v=19$m=19456,t=2,p=1$8F6JYdatQIaeeKbeBl5UUw$/Nsb9FmeNtU77jnh0ZvwRkmFMmi9ZBMMilGBAAprPPk";
 
         // -- Exec
         let scheme = Scheme02;

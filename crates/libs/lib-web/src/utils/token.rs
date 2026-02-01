@@ -36,9 +36,10 @@ pub(crate) fn extract_token(req: &Request<Body>, cookies: &Cookies) -> Option<St
 
     if let Some(header_value) = req.headers().get("Authorization")
         && let Ok(header_str) = header_value.to_str()
-            && let Some(token) = extract_bearer_from_header_str(header_str) {
-                return Some(token);
-            }
+        && let Some(token) = extract_bearer_from_header_str(header_str)
+    {
+        return Some(token);
+    }
 
     None
 }

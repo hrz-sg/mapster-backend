@@ -25,24 +25,12 @@ pub fn generate_web_tokens(user: &str, salt: Uuid) -> Result<(String, String)> {
 
 fn generate_access_token(user: &str, salt: Uuid) -> Result<String> {
     let config = &auth_config();
-    create_jwt_token(
-        user,
-        &config.TOKEN_KEY,
-        config.ACCESS_TOKEN_TTL,
-        salt,
-        "access",
-    )
+    create_jwt_token(user, &config.TOKEN_KEY, config.ACCESS_TOKEN_TTL, salt, "access")
 }
 
 fn generate_refresh_token(user: &str, salt: Uuid) -> Result<String> {
     let config = &auth_config();
-    create_jwt_token(
-        user,
-        &config.TOKEN_KEY,
-        config.REFRESH_TOKEN_TTL,
-        salt,
-        "refresh",
-    )
+    create_jwt_token(user, &config.TOKEN_KEY, config.REFRESH_TOKEN_TTL, salt, "refresh")
 }
 
 pub fn validate_web_token(token: &String) -> Result<TokenClaims> {
@@ -52,13 +40,7 @@ pub fn validate_web_token(token: &String) -> Result<TokenClaims> {
 
 // endregion: --- Web Token Gen and Validation
 
-fn create_jwt_token(
-    user_id: &str,
-    secret: &[u8],
-    expires_in_seconds: i64,
-    salt: Uuid,
-    typ: &str,
-) -> Result<String> {
+fn create_jwt_token(user_id: &str, secret: &[u8], expires_in_seconds: i64, salt: Uuid, typ: &str) -> Result<String> {
     if user_id.is_empty() {
         return Err(Error::InvalidSubject);
     }
@@ -74,12 +56,7 @@ fn create_jwt_token(
         typ: typ.to_string(),
     };
 
-    encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(secret),
-    )
-    .map_err(Error::from)
+    encode(&Header::default(), &claims, &EncodingKey::from_secret(secret)).map_err(Error::from)
 }
 
 fn decode_jwt_token<T: Into<String>>(token: T, secret: &[u8]) -> Result<TokenClaims> {

@@ -35,10 +35,7 @@ pub async fn hash_pwd(to_hash: ContentToHash) -> Result<String> {
 
 /// Validate if a ContentToHash matches
 pub async fn validate_pwd(to_hash: ContentToHash, pwd_ref: String) -> Result<SchemeStatus> {
-    let PwdParts {
-        scheme_name,
-        hashed,
-    } = pwd_ref.parse()?;
+    let PwdParts { scheme_name, hashed } = pwd_ref.parse()?;
 
     // Note: We do first, so that we do not have to clonse the scheme_name.
     let scheme_status = if scheme_name == DEFAULT_SCHEME {
@@ -105,8 +102,20 @@ mod tests {
 
     use super::*;
 
+    use dotenvy::dotenv;
+    use std::sync::Once;
+
+    static INIT: Once = Once::new();
+
+    fn setup_env() {
+        INIT.call_once(|| {
+            dotenv().ok();
+        });
+    }
+
     #[tokio::test]
     async fn test_multi_scheme_ok() -> Result<()> {
+        setup_env();
         // -- Setup & Fixtures
         let fx_salt = Uuid::parse_str("f05e8961-d6ad-4086-9e78-a6de065e5453")?;
         let fx_to_hash = ContentToHash {

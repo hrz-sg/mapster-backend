@@ -23,8 +23,7 @@ async fn print_response(response: reqwest::Response) -> Result<()> {
 
 async fn parse_json(response: reqwest::Response) -> Result<Value> {
     let text = response.text().await?;
-    let json: Value = serde_json::from_str(&text)
-        .map_err(|e| format!("Invalid JSON: {}\nBody: {}", e, text))?;
+    let json: Value = serde_json::from_str(&text).map_err(|e| format!("Invalid JSON: {}\nBody: {}", e, text))?;
     println!("Body: {}", serde_json::to_string_pretty(&json)?);
     Ok(json)
 }
@@ -50,11 +49,7 @@ async fn main() -> Result<()> {
         .await?;
 
     // -- Send POST-request
-    let response = client
-        .post(&format!("{}/api/posts", BASE_URL))
-        .multipart(form)
-        .send()
-        .await?;
+    let response = client.post(&format!("{}/api/posts", BASE_URL)).multipart(form).send().await?;
 
     print_response(response).await?;
 
@@ -65,34 +60,25 @@ async fn main() -> Result<()> {
                 .text("title", "Post title")
                 .text("description", "Post description")
                 .file("media", format!("{}/image-1.jpg", ASSETS_DIR))
-                .await?
+                .await?,
         )
         .send()
         .await?;
 
     let create_post_json = parse_json(response).await?;
 
-     // Get post_id for futher tests
-    let post_id = create_post_json["id"]
-        .as_str()
-        .expect("Missing 'id' in create response");
+    // Get post_id for futher tests
+    let post_id = create_post_json["id"].as_str().expect("Missing 'id' in create response");
     println!("Created post ID: {}\n", post_id);
     println!("\nPost upload test completed successfully!");
 
     println!("\n--- Listing posts ---");
-    let response = client
-        .get(&format!("{}/api/posts", BASE_URL))
-        .send()
-        .await?;
+    let response = client.get(&format!("{}/api/posts", BASE_URL)).send().await?;
     print_response(response).await?;
     println!("\nPost listing test completed successfully!");
 
-
     println!("\n--- Getting post by ID ---");
-    let get_resp = client
-        .get(&format!("{}/api/posts/{}", BASE_URL, post_id))
-        .send()
-        .await?;
+    let get_resp = client.get(&format!("{}/api/posts/{}", BASE_URL, post_id)).send().await?;
     print_response(get_resp).await?;
     println!("\nPost get by ID test completed successfully!");
 
@@ -115,16 +101,12 @@ async fn main() -> Result<()> {
     print_response(update_resp).await?;
     println!("\nPost update test completed successfully!");
 
-
     println!("\n--- Deleting post ---");
-    let delete_resp = client
-        .delete(&format!("{}/api/posts/{}", BASE_URL, post_id))
-        .send()
-        .await?;
+    let delete_resp = client.delete(&format!("{}/api/posts/{}", BASE_URL, post_id)).send().await?;
     print_response(delete_resp).await?;
     println!("\nPost delete test completed successfully!");
 
     println!("\nAPI test completed successfully!");
-    
+
     Ok(())
 }

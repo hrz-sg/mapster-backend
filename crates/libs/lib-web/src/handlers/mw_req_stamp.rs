@@ -34,11 +34,7 @@ impl<S: Send + Sync> FromRequestParts<S> for ReqStamp {
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self> {
         debug!("{:<12} - ReqStamp", "EXTRACTOR");
 
-        parts
-            .extensions
-            .get::<ReqStamp>()
-            .cloned()
-            .ok_or(Error::ReqStampNotInReqExt)
+        parts.extensions.get::<ReqStamp>().cloned().ok_or(Error::ReqStampNotInReqExt)
     }
 }
 // endregion: --- ReqStamp Extractor

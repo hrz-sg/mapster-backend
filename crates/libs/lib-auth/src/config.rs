@@ -5,8 +5,7 @@ pub fn auth_config() -> &'static AuthConfig {
     static INSTANCE: OnceLock<AuthConfig> = OnceLock::new();
 
     INSTANCE.get_or_init(|| {
-        AuthConfig::load_from_env()
-            .unwrap_or_else(|ex| panic!("FATAL - WHILE LOADING CONF - Cause: {ex:?}"))
+        AuthConfig::load_from_env().unwrap_or_else(|ex| panic!("FATAL - WHILE LOADING CONF - Cause: {ex:?}"))
     })
 }
 

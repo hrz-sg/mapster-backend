@@ -1,14 +1,10 @@
-use image::{ImageReader, ImageFormat};
 use image::imageops::FilterType::CatmullRom;
-use std::io::Cursor;
+use image::{ImageFormat, ImageReader};
 use std::fs;
+use std::io::Cursor;
 use std::process::{Command, Stdio};
 
-pub async fn generate_thumbnail(
-    mime: &str, 
-    data: &[u8],
-    thumbnail_override: Option<&[u8]>,
-) -> Result<Vec<u8>> {
+pub async fn generate_thumbnail(mime: &str, data: &[u8], thumbnail_override: Option<&[u8]>) -> Result<Vec<u8>> {
     if let Some(thumb) = thumbnail_override {
         return Ok(thumb.to_vec());
     }
@@ -48,20 +44,24 @@ pub async fn generate_video_thumbnail(data: &[u8]) -> Result<Vec<u8>> {
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|_| Error::Io)?
         .as_nanos();
-    
+
     let video_path = format!("temp_video_{}.mp4", timestamp);
     let thumb_path = format!("temp_thumb_{}.jpg", timestamp);
-    
+
     // Save input video to a temporary file
     fs::write(&video_path, data).map_err(|_| Error::Io)?;
-    
+
     // Generate thumbnail with ffmpeg
     let output = Command::new("ffmpeg")
         .args(&[
-            "-i", &video_path,
-            "-ss", "00:00:01",
-            "-vframes", "1",
-            "-q:v", "2",
+            "-i",
+            &video_path,
+            "-ss",
+            "00:00:01",
+            "-vframes",
+            "1",
+            "-q:v",
+            "2",
             "-y",
             &thumb_path,
         ])
@@ -80,13 +80,12 @@ pub async fn generate_video_thumbnail(data: &[u8]) -> Result<Vec<u8>> {
         return Err(Error::FfmpegError);
     }
 
-
     // Read thumbnail bytes
     let thumb_bytes = fs::read(&thumb_path).map_err(|_| Error::Io)?;
 
     // Cleanup thumb temp file
     let _ = fs::remove_file(&thumb_path);
-    
+
     Ok(thumb_bytes)
 }
 

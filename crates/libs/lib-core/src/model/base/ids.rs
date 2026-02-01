@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
+use crate::model::{Error, Result};
 use nanoid::nanoid;
 use std::collections::HashMap;
-use crate::model::{Error, Result};
 
 /// Length of the random part (NanoID)
 const NANOID_LENGTH: usize = 21;
@@ -56,16 +56,19 @@ pub fn generate_id_with_prefix(prefix: &str) -> Result<String> {
     if prefix.len() != PREFIX_LETTERS_LENGTH {
         return Err(Error::InvalidIdPrefixLength(format!(
             "Prefix must be {} letters, got '{}' ({} chars)",
-            PREFIX_LETTERS_LENGTH, prefix, prefix.len()
+            PREFIX_LETTERS_LENGTH,
+            prefix,
+            prefix.len()
         )));
     }
-    
+
     if !prefix.chars().all(|c| c.is_ascii_lowercase()) {
         return Err(Error::InvalidIdPrefixFormat(format!(
-            "Prefix must be lowercase letters, got '{}'", prefix
+            "Prefix must be lowercase letters, got '{}'",
+            prefix
         )));
     }
-    
+
     Ok(format!("{}_{}", prefix, _generate_nanoid()))
 }
 
@@ -97,8 +100,11 @@ fn extract_prefix_from_table_name(table: &str) -> String {
         ("post_media", "pme"),
         ("comment_media", "cme"),
         ("post_collections", "col"),
-    ].iter().cloned().collect();
-    
+    ]
+    .iter()
+    .cloned()
+    .collect();
+
     mapping.get(table).unwrap_or(&"gen").to_string()
 }
 
@@ -114,12 +120,13 @@ pub fn validate_id_for_table(id: &str, table: &str) -> Result<()> {
         "post_collection" => "col_",
         _ => return Ok(()), // DO not check other tables
     };
-    
+
     if !id.starts_with(expected_prefix) || id.len() != TOTAL_ID_LENGTH {
         return Err(Error::InvalidIdFormat(format!(
-            "Invalid ID for table '{}': {}", table, id
+            "Invalid ID for table '{}': {}",
+            table, id
         )));
     }
-    
+
     Ok(())
 }

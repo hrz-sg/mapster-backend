@@ -1,26 +1,20 @@
 // region:   --- Modules
-
 mod config;
 mod error;
 mod web;
-
-use std::net::SocketAddr;
-
 pub use self::error::{Error, Result};
 use axum::response::Html;
 use config::web_config;
-
 use lib_web::handlers::mw_req_stamp::mw_req_stamp_resolver;
 use lib_web::middleware::mw_auth::mw_ctx_resolver;
+use std::net::SocketAddr;
 // use lib_web::middleware::mw_res_map::mw_reponse_map;
-use lib_web::routes::routes_static;
-
-use crate::web::{routes_email, routes_login, routes_post, routes_post_comments, routes_post_like, routes_register, routes_token, routes_user_follow, routes_user_profile};
-
+use crate::web::{routes_auth, routes_email, routes_post, routes_token, routes_user_follow, routes_user_profile};
 use axum::routing::get;
 use axum::{Router, middleware};
 use lib_core::_dev_utils;
 use lib_core::model::ModelManager;
+use lib_web::routes::routes_static;
 use tokio::net::TcpListener;
 use tower_cookies::CookieManagerLayer;
 use tracing_subscriber::EnvFilter;
@@ -29,8 +23,10 @@ use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // -- Load env
     dotenvy::dotenv().ok();
 
+    // -- Tracing
     tracing_subscriber::fmt()
         .without_time() // For early local development
         .with_target(false)
@@ -48,12 +44,9 @@ async fn main() -> Result<()> {
 
     // -- Define Routes
     let routes_all = Router::new()
-        .merge(routes_register::routes(mm.clone()))
-        .merge(routes_login::routes(mm.clone()))
+        .merge(routes_auth::routes(mm.clone()))
         .merge(routes_email::routes(mm.clone()))
         .merge(routes_post::routes(mm.clone()))
-        .merge(routes_post_like::routes(mm.clone()))
-        .merge(routes_post_comments::routes(mm.clone()))
         .merge(routes_user_profile::routes(mm.clone()))
         .merge(routes_user_follow::routes(mm.clone()))
         .merge(routes_token::routes(mm.clone()))
@@ -68,9 +61,7 @@ async fn main() -> Result<()> {
     println!("{:12} - {addr}\n", "LISTENING");
 
     let listener = TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, routes_all.into_make_service())
-        .await
-        .unwrap();
+    axum::serve(listener, routes_all.into_make_service()).await.unwrap();
 
     Ok(())
 }

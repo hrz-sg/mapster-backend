@@ -16,11 +16,11 @@ where
     if MC::has_owner_id() {
         fields.push(SeaField::new(CommonIden::OwnerId.into_iden(), user_id));
     }
-    
+
     if MC::has_user_id() {
         fields.push(SeaField::new(CommonIden::UserId.into_iden(), user_id));
     }
-    
+
     // Add timestamps ONLY if table has them
     add_timestamps_for_create(fields, user_id, MC::timestamp_fields());
 }

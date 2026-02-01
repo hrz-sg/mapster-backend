@@ -66,8 +66,7 @@ async fn ctx_resolve(mm: ModelManager, cookies: &Cookies, token: String) -> CtxE
 
     // -- Update Token if we get get it from Cookie
     if cookies.get(AUTH_TOKEN).is_some() {
-        set_token_cookie(cookies, &user.username, user.token_salt)
-            .map_err(|_| CtxExtError::CannotSetTokenCookie)?;
+        set_token_cookie(cookies, &user.username, user.token_salt).map_err(|_| CtxExtError::CannotSetTokenCookie)?;
     }
 
     // -- Create CtxExtResult

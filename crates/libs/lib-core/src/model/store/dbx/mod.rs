@@ -151,10 +151,7 @@ impl Dbx {
         Ok(data)
     }
 
-    pub async fn fetch_optional<'q, O, A>(
-        &self,
-        query: QueryAs<'q, Postgres, O, A>,
-    ) -> Result<Option<O>>
+    pub async fn fetch_optional<'q, O, A>(&self, query: QueryAs<'q, Postgres, O, A>) -> Result<Option<O>>
     where
         O: for<'r> FromRow<'r, <Postgres as sqlx::Database>::Row> + Send + Unpin,
         A: IntoArguments<'q, Postgres> + 'q,

@@ -5,8 +5,7 @@ pub fn oss_config() -> &'static OssConfig {
     static INSTANCE: OnceLock<OssConfig> = OnceLock::new();
 
     INSTANCE.get_or_init(|| {
-        OssConfig::load_from_env()
-            .unwrap_or_else(|ex| panic!("FATAL - WHILE LOADING CONF - Cause: {ex:?}"))
+        OssConfig::load_from_env().unwrap_or_else(|ex| panic!("FATAL - WHILE LOADING CONF - Cause: {ex:?}"))
     })
 }
 

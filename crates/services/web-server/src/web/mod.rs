@@ -1,9 +1,6 @@
+pub mod routes_auth;
 pub mod routes_email;
-pub mod routes_login;
 pub mod routes_post;
-pub mod routes_post_like;
-pub mod routes_post_comments;
-pub mod routes_register;
 pub mod routes_token;
-pub mod routes_user_profile;
 pub mod routes_user_follow;
+pub mod routes_user_profile;

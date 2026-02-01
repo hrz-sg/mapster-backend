@@ -14,11 +14,13 @@ pub struct Ctx {
 // Constructors
 impl Ctx {
     pub fn root_ctx() -> Self {
-        Ctx { user_id: "usr_sys_root_0000000000000".to_string() }
+        Ctx {
+            user_id: "usr_sys_root".to_string(),
+        }
     }
 
     pub fn new(user_id: String) -> Result<Self> {
-        if user_id == "usr_sys_root_0000000000000" {
+        if user_id == "usr_sys_root" {
             Err(Error::CtxCannotNewRootCtx)
         } else {
             Ok(Self { user_id })

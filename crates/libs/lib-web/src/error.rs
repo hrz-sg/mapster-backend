@@ -5,7 +5,7 @@ use axum::{
 };
 use derive_more::From;
 use lib_auth::token;
-use lib_core::model;
+use lib_core::service;
 use lib_storage::oss;
 use lib_utils::file;
 use serde::Serialize;
@@ -41,8 +41,11 @@ pub enum Error {
     #[from]
     Token(token::Error),
 
-    // -- Modules
-    Model(model::Error),
+    // -- Payload Validation
+    ValidationFailed(String),
+
+    // -- Service
+    Service(service::Error),
 
     // -- OSS
     #[from]
@@ -54,9 +57,15 @@ pub enum Error {
 }
 
 // region: ---- Froms
-impl From<model::Error> for Error {
-    fn from(val: model::Error) -> Self {
-        Self::Model(val)
+impl From<service::Error> for Error {
+    fn from(val: service::Error) -> Self {
+        Self::Service(val)
+    }
+}
+
+impl From<serde_valid::validation::Errors> for Error {
+    fn from(err: serde_valid::validation::Errors) -> Self {
+        Self::ValidationFailed(err.to_string())
     }
 }
 // endregion: ---- Froms
@@ -96,29 +105,29 @@ impl Error {
             // -- Login
             Self::LoginFailUsernameNotFound
             | Self::LoginFailUserHasNoPwd { user_id: _ }
-            | Self::LoginFailPwdNotMatching { user_id: _ } => {
-                (StatusCode::FORBIDDEN, ClientError::LOGIN_FAIL)
-            }
+            | Self::LoginFailPwdNotMatching { user_id: _ } => (StatusCode::FORBIDDEN, ClientError::LOGIN_FAIL),
 
             // -- Auth
             CtxExt(_) => (StatusCode::FORBIDDEN, ClientError::LOGIN_FAIL),
 
             // -- Validation
-            Self::Model(model::Error::ValidationFail(_)) => (
+            Self::Service(service::Error::ValidationFailed(_)) => (
                 StatusCode::BAD_REQUEST,
                 ClientError::RPC_PARAMS_INVALID("Validation failed".to_string()),
             ),
 
-            Self::Model(model::Error::EntityNotFound { entity, id }) => (
+            Self::Service(service::Error::LoginUsernameNotFound)
+            | Self::Service(service::Error::LoginUserHasNoPwd)
+            | Self::Service(service::Error::LoginPwdNotMatching) => (StatusCode::FORBIDDEN, ClientError::LOGIN_FAIL),
+
+            // -- Entity not found
+            Self::Service(service::Error::EntityNotFound { entity, id }) => (
                 StatusCode::NOT_FOUND,
                 ClientError::ENTITY_NOT_FOUND { entity, id: id.clone() },
             ),
 
             // -- Fallback
-            _ => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                ClientError::SERVICE_ERROR,
-            ),
+            _ => (StatusCode::INTERNAL_SERVER_ERROR, ClientError::SERVICE_ERROR),
         }
     }
 }

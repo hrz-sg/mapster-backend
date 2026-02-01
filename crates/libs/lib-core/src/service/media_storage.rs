@@ -1,5 +1,5 @@
-use lib_storage::oss::OssClient;
 use crate::model::Result;
+use lib_storage::oss::OssClient;
 
 #[async_trait::async_trait]
 pub trait Storage: Send + Sync {

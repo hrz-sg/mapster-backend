@@ -33,6 +33,7 @@ pub async fn init_test() -> ModelManager {
 
     let mm = INIT
         .get_or_init(|| async {
+            dotenvy::dotenv().ok();
             init_dev().await;
             ModelManager::new().await.unwrap()
         })
@@ -54,7 +55,6 @@ pub async fn seed_posts(
             ctx,
             mm,
             PostForCreate {
-                // owner_id: ctx.user_id().to_string(),
                 title: title.to_string(),
                 description: description.to_string(),
                 is_published: None,

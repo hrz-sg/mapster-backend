@@ -19,8 +19,7 @@ async fn print_response(response: reqwest::Response) -> Result<()> {
 
 async fn parse_json(response: reqwest::Response) -> Result<Value> {
     let text = response.text().await?;
-    let json: Value = serde_json::from_str(&text)
-        .map_err(|e| format!("Invalid JSON: {}\nBody: {}", e, text))?;
+    let json: Value = serde_json::from_str(&text).map_err(|e| format!("Invalid JSON: {}\nBody: {}", e, text))?;
     println!("Body: {}", serde_json::to_string_pretty(&json)?);
     Ok(json)
 }
@@ -60,22 +59,14 @@ async fn main() -> Result<()> {
     println!("\nCreating comment for post test completed successfully!");
 
     println!("\n--- Get the comment by comment id ---");
-    let response = client
-        .get(&format!("{}/api/comments/{comment_id}", BASE_URL))
-        .send()
-        .await?;
+    let response = client.get(&format!("{}/api/comments/{comment_id}", BASE_URL)).send().await?;
     print_response(response).await?;
     println!("\nGetting comment by comment id test completed successfully!");
 
-
     println!("\n--- Get all the comments for the post ---");
-    let response = client
-        .get(&format!("{}/api/posts/{post_id}/comments", BASE_URL))
-        .send()
-        .await?;
+    let response = client.get(&format!("{}/api/posts/{post_id}/comments", BASE_URL)).send().await?;
     print_response(response).await?;
     println!("\nPost listing test completed successfully!");
-
 
     println!("\n--- Get replies for the comment ---");
     let get_resp = client
@@ -84,7 +75,6 @@ async fn main() -> Result<()> {
         .await?;
     print_response(get_resp).await?;
     println!("\nGet replies for the comment test completed successfully!");
-
 
     println!("\n--- Updating comment ---");
     let update_comment = serde_json::json!({
@@ -100,14 +90,11 @@ async fn main() -> Result<()> {
     println!("\nComment update test completed successfully!");
 
     println!("\n--- Deleting comment ---");
-    let delete_resp = client
-        .delete(&format!("{}/api/comments/{comment_id}", BASE_URL))
-        .send()
-        .await?;
+    let delete_resp = client.delete(&format!("{}/api/comments/{comment_id}", BASE_URL)).send().await?;
     print_response(delete_resp).await?;
     println!("\nComment delete test completed successfully!");
 
     println!("\nAPI test completed successfully!");
-    
+
     Ok(())
 }

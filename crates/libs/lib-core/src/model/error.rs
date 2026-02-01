@@ -45,7 +45,7 @@ pub enum Error {
     ResetTokenInvalid,
     ResetTokenExpired,
 
-    // -- Permission 
+    // -- Permission
     PermissionDenied(String),
     NotEntityOwner(String),
 

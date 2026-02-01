@@ -53,8 +53,20 @@ mod tests {
     use crate::auth_config;
     use uuid::Uuid;
 
+    use dotenvy::dotenv;
+
+    static INIT: std::sync::Once = std::sync::Once::new();
+
+    fn setup_env() {
+        INIT.call_once(|| {
+            dotenv().ok();
+        });
+    }
+
     #[test]
     fn test_scheme_01_hash_into_b64u_ok() -> Result<()> {
+        setup_env();
+
         // -- Setup & Fixtures
         let fx_salt = Uuid::parse_str("f05e8961-d6ad-4086-9e78-a6de065e5453")?;
         let fx_key = &auth_config().PWD_KEY; // 512 bits = 64 bytes
@@ -62,7 +74,7 @@ mod tests {
             content: "hello world".to_string(),
             salt: fx_salt,
         };
-        let fx_res = "qO9A90161DoewhNXFwVcnAaljRIVnajvd5zsVDrySCwxpoLwVCACzaz-8Ev2ZpI8RackUTLBVqFI6H5oMe-OIg";
+        let fx_res = "Cs_IiZ7MLA4G40Jg_Cu06zCstuzznQlTlW4MFESWy9GEpNL6WZ81ljS58NGEB8LI43oVuKeXkf__-oc3bEe-WA";
 
         // -- Exec
         let res = hash(fx_key, &fx_to_hash)?;

@@ -3,9 +3,8 @@ use crate::utils::token::extract_bearer_token;
 use axum::{Json, extract::State, http::HeaderMap};
 use lib_auth::auth_config;
 use lib_auth::token::{generate_web_tokens, validate_web_token};
-use lib_core::ctx::Ctx;
 use lib_core::model::ModelManager;
-use lib_core::model::user::{UserBmc, UserForAuth};
+use lib_core::service::user::UserService;
 use serde_json::json;
 
 pub async fn api_refresh_token_handler(
@@ -30,9 +29,7 @@ pub async fn api_refresh_token_handler(
     }
 
     // -- Find user
-    let user: UserForAuth = UserBmc::first_by_username(&Ctx::root_ctx(), &mm, &claims.sub)
-        .await?
-        .ok_or(Error::LoginFailUsernameNotFound)?;
+    let user = UserService::validate_refresh_token(&mm, &claims.sub, &claims.salt.to_string()).await?;
 
     // -- Validate salt after changing password
     if claims.salt != user.token_salt.to_string() {
