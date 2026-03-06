@@ -30,8 +30,9 @@ pub struct Comment {
     pub text: String,
 }
 
-#[derive(Fields, Deserialize)]
+#[derive(Fields, Deserialize, Debug)]
 pub struct CommentForCreate {
+    #[field(cast_as = "comment_entity_type")]
     pub entity_type: CommentEntityType,
     pub entity_id: String,
     pub parent_id: Option<String>,
@@ -86,7 +87,7 @@ impl CommentBmc {
         mm: &ModelManager,
         entity_type: CommentEntityType,
         entity_id: &str,
-        list_options: Option<ListOptions>,
+        // list_options: Option<ListOptions>,
     ) -> Result<Vec<Comment>> {
         let filter = CommentFilter {
             entity_type: Some(vec![entity_type]),
@@ -95,7 +96,7 @@ impl CommentBmc {
             ..Default::default()
         };
 
-        base::list::<Self, _, _>(ctx, mm, Some(filter), list_options).await
+        base::list::<Self, _, _>(ctx, mm, Some(filter), None).await
     }
 
     pub async fn list_replies(

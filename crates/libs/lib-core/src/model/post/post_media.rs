@@ -9,32 +9,59 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 // region: --- PostMedia Types
+
+#[derive(Clone, Debug, sqlx::Type, derive_more::Display, Deserialize, Serialize)]
+#[sqlx(type_name = "media_type")]
+pub enum MediaType {
+    Image,
+    Video,
+}
+
+// Covert custom MediaType into sea_query::Value
+impl From<MediaType> for sea_query::Value {
+    fn from(val: MediaType) -> Self {
+        val.to_string().into()
+    }
+}
+
 #[derive(Debug, Clone, Fields, FromRow, Serialize, Deserialize)]
 pub struct PostMedia {
     pub id: String,
     pub post_id: String,
-    pub media_url: String,
-    pub media_type: String, // "image" or "video"
+    pub object_key: String,
+    pub media_type: MediaType, // "image" or "video"
     pub mime_type: String,
     pub sort_order: i32, // order in carousel
 }
 
-#[derive(Fields, Deserialize)]
+#[derive(Debug, Clone, Fields, FromRow, Serialize, Deserialize)]
+pub struct PostMediaForDisplay {
+    pub id: String,
+    pub post_id: String,
+    pub url: String,
+    pub media_type: MediaType, // "image" or "video"
+    pub mime_type: String,
+    pub sort_order: i32, // order in carousel
+}
+
+#[derive(Debug, Fields, Deserialize)]
 pub struct PostMediaForCreate {
     pub post_id: String,
-    pub media_url: String,
-    pub media_type: String,
+    pub object_key: String,
+    #[field(cast_as = "media_type")]
+    pub media_type: MediaType,
     pub mime_type: String,
+    pub etag: String,
     pub width: Option<i32>,
     pub height: Option<i32>,
-    pub file_size: Option<i64>,
+    pub file_size: i64,
     pub duration: Option<i32>,
     pub sort_order: i32,
 }
 
 #[derive(Fields, Default, Deserialize)]
 pub struct PostMediaForUpdate {
-    pub media_url: Option<String>,
+    pub object_key: Option<String>,
     pub media_type: Option<String>,
     pub mime_type: Option<String>,
     pub width: Option<i32>,
@@ -42,7 +69,6 @@ pub struct PostMediaForUpdate {
     pub file_size: Option<i64>,
     pub duration: Option<i32>,
     pub sort_order: Option<i32>,
-    pub alt_text: Option<String>,
 }
 
 #[derive(FilterNodes, Deserialize, Default, Debug)]
@@ -71,6 +97,10 @@ impl DbBmc for PostMediaBmc {
 impl PostMediaBmc {
     pub async fn create(ctx: &Ctx, mm: &ModelManager, post_media_c: PostMediaForCreate) -> Result<String> {
         base::create::<Self, _>(ctx, mm, post_media_c).await
+    }
+
+    pub async fn create_many(ctx: &Ctx, mm: &ModelManager, post_medias_c: Vec<PostMediaForCreate>) -> Result<Vec<String>> {
+        base::create_many::<Self, _>(ctx, mm, post_medias_c).await
     }
 
     pub async fn get(ctx: &Ctx, mm: &ModelManager, id: &str) -> Result<PostMedia> {
@@ -103,6 +133,10 @@ impl PostMediaBmc {
     pub async fn delete(ctx: &Ctx, mm: &ModelManager, id: &str) -> Result<()> {
         base::delete::<Self>(ctx, mm, id).await
     }
+    
+    pub async fn delete_many(ctx: &Ctx, mm: &ModelManager, ids: Vec<&str>) -> Result<u64> {
+        base::delete_many::<Self>(ctx, mm, ids).await
+    }
 
     pub async fn delete_by_post(_ctx: &Ctx, mm: &ModelManager, post_id: &str) -> Result<()> {
         // -- Build query
@@ -117,5 +151,15 @@ impl PostMediaBmc {
         mm.dbx().execute(sqlx_query).await?;
 
         Ok(())
+    }
+
+    pub async fn count(ctx: &Ctx, mm: &ModelManager, id: &str) -> Result<i64> {
+        base::count::<Self, _>(
+            ctx, 
+            mm, 
+            Some(PostMediaFilter { 
+                post_id: Some(OpValsString(vec![OpValString::Eq(id.to_string())])),
+            ..Default::default()
+        })).await
     }
 }

@@ -1,18 +1,28 @@
 use crate::ctx::Ctx;
 use crate::model::ModelManager;
 use crate::model::journey::{
-    JourneyPost, JourneyPostBmc, JourneyPostFilter, JourneyPostForCreate, JourneyPostForUpdate,
+    AddPostToJourney, JourneyPost, JourneyPostBmc, JourneyPostFilter, JourneyPostForCreate, JourneyPostForUpdate
 };
 use crate::service::error::{Error, Result};
 use modql::filter::ListOptions;
 use std::collections::HashMap;
-use tracing::{error, info};
+use tracing::info;
 
 pub struct JourneyPostService;
 
 impl JourneyPostService {
     /// --- Add post into journey
-    pub async fn add_post_to_journey_end(ctx: &Ctx, mm: &ModelManager, journey_id: &str, post_id: &str) -> Result<()> {
+    pub async fn add_post_to_journey_end(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        journey_id: String, 
+        journey_post_a: AddPostToJourney
+    ) -> Result<()> {
+
+        let AddPostToJourney { 
+            post_id, 
+        } = journey_post_a;
+
         info!("Starting to add post: {} to journey: {}", post_id, journey_id);
 
         let mm_txn = mm.new_with_txn()?;
@@ -20,14 +30,10 @@ impl JourneyPostService {
         dbx.begin_txn().await?;
 
         // -- Check if post already in journey
-        if JourneyPostBmc::exists(ctx, &mm_txn, journey_id, post_id).await? {
-            dbx.rollback_txn().await?;
-            info!("Post {} already in journey {}, rolling back", post_id, journey_id);
-            return Err(Error::already_exists("Post already in journey"));
-        }
+        JourneyPostBmc::exists(ctx, &mm_txn, &journey_id, &post_id).await?;
 
         // -- Get posts listed by journey id
-        let current_posts = Self::list_by_journey(ctx, &mm_txn, journey_id).await?;
+        let current_posts = Self::list_by_journey(ctx, &mm_txn, &journey_id).await?;
         info!("Journey {} currently has {} posts", journey_id, current_posts.len());
 
         // -- Compute the next order (in the end)
@@ -51,46 +57,43 @@ impl JourneyPostService {
     }
 
     /// --- Reorder one post's position
-    pub async fn move_post_to_position(
+    pub async fn move_post_position(
         ctx: &Ctx,
         mm: &ModelManager,
-        journey_id: &str,
-        post_id: &str,
-        new_position: i32,
+        journey_id: String,
+        journey_post_u: JourneyPostForUpdate,
     ) -> Result<()> {
+        let JourneyPostForUpdate {
+            post_id,
+            sort_order, // new position
+        } = journey_post_u;
+        
         // -- Start transaction
         let mm_txn = mm.new_with_txn()?;
         let dbx = mm_txn.dbx();
         dbx.begin_txn().await?;
 
         // -- Check if post exists and its position
-        let current_jp = JourneyPostBmc::get(ctx, &mm_txn, journey_id, post_id).await?;
+        let current_jp = JourneyPostBmc::get(ctx, &mm_txn, &journey_id, &post_id).await?;
         info!("Current position of post {}: {}", post_id, current_jp.sort_order);
 
         // -- If already on the correct position
-        if current_jp.sort_order == new_position {
-            dbx.rollback_txn().await?;
-            info!("Post {} already at position {}", post_id, new_position);
+        if current_jp.sort_order == sort_order {
+            info!("Post {} already at position {}", post_id, sort_order);
             return Ok(());
         }
 
-        // -- Gell all posts in journey
-        let all_posts = Self::list_by_journey(ctx, &mm_txn, journey_id).await?;
+        // -- Get all posts in journey
+        let all_posts = Self::list_by_journey(ctx, &mm_txn, &journey_id).await?;
         info!("Journey {} has {} total posts", journey_id, all_posts.len());
 
         // -- Check validation of new_position
         // After delete current post, there are left (all_posts.len() - 1) posts
         // New positions: 0..(all_posts.len() - 1)
-        if new_position < 0 || new_position >= all_posts.len() as i32 {
-            dbx.rollback_txn().await?;
-            error!(
-                "Invalid position {} for journey with {} posts",
-                new_position,
-                all_posts.len()
-            );
+        if sort_order < 0 || sort_order >= all_posts.len() as i32 {
             return Err(Error::validation_failed(format!(
                 "Invalid position: {}. Must be between 0 and {}",
-                new_position,
+                sort_order,
                 all_posts.len() - 1
             )));
         }
@@ -103,17 +106,17 @@ impl JourneyPostService {
 
         // -- Insert into new position
         // Now new_order contains (all_posts.len() - 1) elements
-        new_order.insert(new_position as usize, post_id.to_string());
+        new_order.insert(sort_order as usize, post_id.to_string());
 
         info!("New order for journey {}: {:?}", journey_id, new_order);
 
         // -- Apply new order
         // TODO: improve
-        Self::reorder_posts_in_journey(ctx, &mm_txn, journey_id, new_order).await?;
+        Self::reorder_posts_in_journey(ctx, &mm_txn, &journey_id, new_order).await?;
 
         info!(
             "Post {} moved from position {} to {} in journey {}",
-            post_id, current_jp.sort_order, new_position, journey_id
+            post_id, current_jp.sort_order, sort_order, journey_id
         );
 
         // -- Complete transaction
@@ -122,8 +125,8 @@ impl JourneyPostService {
         Ok(())
     }
 
-    /// --- Rearrange posts positions in journey
-    /// Note: should accept transaction
+    // region: --- Helpers
+
     pub async fn reorder_posts_in_journey(
         ctx: &Ctx,
         mm: &ModelManager,
@@ -135,7 +138,7 @@ impl JourneyPostService {
 
         Self::reorder_posts_internal(ctx, mm, journey_id, &current_posts, &new_order).await
     }
-
+    
     async fn reorder_posts_internal(
         ctx: &Ctx,
         mm: &ModelManager,
@@ -164,30 +167,44 @@ impl JourneyPostService {
             ));
         }
 
-        // -- Apply updates
+        // -- Apply updates with temporary positions to avoid unique constraint violations
+
+        // 1. Move all the posts by a large offset to free up space.
+        let offset = new_order.len() as i32; // use length as offset
+        for (post_id, current) in &current_map {
+            let temp_position = current.sort_order + offset + 1000; // big offset to avoid collision
+
+            let post_u = JourneyPostForUpdate {
+                post_id: post_id.to_string(),
+                sort_order: temp_position,
+            };
+
+            JourneyPostBmc::update_post_position(
+                ctx,
+                mm,
+                journey_id,
+                post_u,
+            ).await?;
+        }
+        
+        // 2. Set the correct positions
         let mut updated = 0;
-
         for (new_position, post_id) in new_order.iter().enumerate() {
-            let current = current_map.get(post_id.as_str()).ok_or_else(|| {
-                Error::validation_failed(format!("Post {} is not part of journey {}", post_id, journey_id))
-            })?;
-
             let new_position = new_position as i32;
 
-            if current.sort_order != new_position {
-                JourneyPostBmc::update(
-                    ctx,
-                    mm,
-                    journey_id,
-                    post_id,
-                    JourneyPostForUpdate {
-                        sort_order: new_position,
-                    },
-                )
-                .await?;
-
-                updated += 1;
-            }
+            let post_u = JourneyPostForUpdate {
+                post_id: post_id.to_string(),
+                sort_order: new_position,
+            };
+            
+            JourneyPostBmc::update_post_position(
+                ctx,
+                mm,
+                journey_id,
+                post_u,
+            ).await?;
+            
+            updated += 1;
         }
 
         info!("Updated {} post positions in journey {}", updated, journey_id);
@@ -195,8 +212,13 @@ impl JourneyPostService {
         Ok(())
     }
 
-    // helper function
-    pub async fn list_by_journey(ctx: &Ctx, mm: &ModelManager, journey_id: &str) -> Result<Vec<JourneyPost>> {
+    /// NOTE: this is internal function for Journey & JourneyPost services
+    /// can not be used in rpc handlers
+    pub async fn list_by_journey(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        journey_id: &str
+    ) -> Result<Vec<JourneyPost>> {
         // -- Filter by journey_id
         let filters = Some(vec![JourneyPostFilter {
             journey_id: Some(journey_id.into()),
@@ -213,4 +235,6 @@ impl JourneyPostService {
 
         Ok(posts)
     }
+    
+    // endregion: --- Helpers
 }

@@ -1,112 +1,336 @@
-use std::{fs, path::Path};
+#![allow(unused)]
 
-use lib_core::model::ModelManager;
-use reqwest::multipart;
-use serde_json::Value;
+pub type Result<T> = core::result::Result<T, Error>;
+pub type Error = Box<dyn std::error::Error>;
 
-type Result<T> = core::result::Result<T, Error>;
-type Error = Box<dyn std::error::Error>;
-
-const BASE_URL: &str = "http://localhost:8080";
-const ASSETS_DIR: &str = "crates/services/web-server/examples/assets";
-
-pub fn create_client() -> reqwest::Client {
-    reqwest::Client::new()
-}
-
-async fn print_response(response: reqwest::Response) -> Result<()> {
-    println!("Status: {}", response.status());
-    println!("Headers: {:#?}", response.headers());
-    println!("Body: {}", response.text().await?);
-    Ok(())
-}
-
-async fn parse_json(response: reqwest::Response) -> Result<Value> {
-    let text = response.text().await?;
-    let json: Value = serde_json::from_str(&text).map_err(|e| format!("Invalid JSON: {}\nBody: {}", e, text))?;
-    println!("Body: {}", serde_json::to_string_pretty(&json)?);
-    Ok(json)
-}
+use serde_json::{json, Value};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    dotenvy::dotenv().ok();
+	let hc = httpc_test::new_client("http://localhost:8080")?;
 
-    let _mm = ModelManager::new().await?;
+	// -- Login
+	let req_login = hc.do_post(
+		"/api/login",
+		json!({
+			"username": "demo0",
+			"pwd": "welcome"
+		}),
+	);
+	req_login.await?.print().await?;
 
-    let client = create_client();
+	// -- Create post with post media metadata
+	let req_create_post_with_meta = hc.do_post(
+		"/api/rpc",
+		json!({
+			"jsonrpc": "2.0",
+			"id": 1,
+			"method": "create_post_with_media_metadata",
+			"params": {
+				"data": {
+					"title": "post 1",
+					"description": "description 1",
+					"medias": [
+                        {
+                            "object_key": "post/pst_test123/dsd.jpg",
+                            "file_name": "dsd.jpg",
+                            "media_type": "Image",
+                            "mime_type": "image/jpg",
+                            "width": 300,
+                            "height": 300,
+                            "duration": null
+                        },
+                    ]
+				}
+			}
+		}),
+	);
+	let result = req_create_post_with_meta.await?;
+	result.print().await?;
+	let created_post_id: String = result.json_value("/result")?;
 
-    println!("=== Testing Posts API ===");
+	// -- Create post with post media metadata
+	let req_create_post_with_meta = hc.do_post(
+		"/api/rpc",
+		json!({
+			"jsonrpc": "2.0",
+			"id": 1,
+			"method": "create_post_with_media_metadata",
+			"params": {
+				"data": {
+					"title": "post 1",
+					"description": "description 1",
+					"medias": [
+                        {
+                            "object_key": "post/pst_test123/dsd.jpg",
+                            "file_name": "dsd.jpg",
+                            "media_type": "Image",
+                            "mime_type": "image/jpg",
+                            "width": 300,
+                            "height": 300,
+                            "duration": null
+                        },
+                    ]
+				}
+			}
+		}),
+	);
+	let result = req_create_post_with_meta.await?;
+	result.print().await?;
+	let created_post_id: String = result.json_value("/result")?;
 
-    // -- Create multipart form
-    println!("\n--- Upload post ---");
-    let form = multipart::Form::new()
-        .text("title", "Post title")
-        .text("description", "Post description")
-        .file("media", format!("{}/image-1.jpg", ASSETS_DIR))
-        .await?
-        .file("media", format!("{}/image-2.jpg", ASSETS_DIR))
-        .await?;
+	// // -- Get feed posts
+	// let req_list_feed = hc.do_post(
+	// 	"/api/rpc",
+	// 	json!({
+	// 		"jsonrpc": "2.0",
+	// 		"id": 3,
+	// 		"method": "list_feed_posts",
+	// 		"params": {
+	// 			"filters": {},
+	// 			"list_options": { "limit": 10, "offset": 0 } 
+	// 		}
+	// 	}),
+	// );
+	// let result = req_list_feed.await?;
+	// result.print().await?;
+	// let post_detail_id: String = result.json_value("/result/0/id")?;
 
-    // -- Send POST-request
-    let response = client.post(&format!("{}/api/posts", BASE_URL)).multipart(form).send().await?;
+	// // -- Get post detail
+	// let req_get_post = hc.do_post(
+	// 	"/api/rpc",
+	// 	json!({
+	// 		"jsonrpc": "2.0",
+	// 		"id": 2,
+	// 		"method": "get_post_detail",
+	// 		"params": { "id": post_detail_id }
+	// 	}),
+	// );
+	// let result = req_get_post.await?;
+	// result.print().await?;
 
-    print_response(response).await?;
+	// -- Get user posts (for profile)
+	let req_list_user = hc.do_post(
+		"/api/rpc",
+		json!({
+			"jsonrpc": "2.0",
+			"id": 4,
+			"method": "list_user_posts",
+			"params": {
+				"id": "usr_demo0"
+			}
+		}),
+	);
 
-    let response = client
-        .post(&format!("{}/api/posts", BASE_URL))
-        .multipart(
-            multipart::Form::new()
-                .text("title", "Post title")
-                .text("description", "Post description")
-                .file("media", format!("{}/image-1.jpg", ASSETS_DIR))
-                .await?,
-        )
-        .send()
-        .await?;
+	let res_list_user = req_list_user.await?;
+	res_list_user.print().await?;
 
-    let create_post_json = parse_json(response).await?;
+	// // -- Create comment
+	// let req_create_comment = hc.do_post(
+	// 	"/api/rpc",
+	// 	json!({
+	// 		"jsonrpc": "2.0",
+	// 		"id": 1,
+	// 		"method": "create_comment",
+	// 		"params": {
+	// 			"data": {
+	// 				"post_id": post_detail_id, 
+	// 				"text": "created comment 1",
+	// 			}
+	// 		}
+	// 	}),
+	// );
+	// let result = req_create_comment.await?;
+	// result.print().await?;
+	// let comment_id: String = result.json_value("/result/id")?;
 
-    // Get post_id for futher tests
-    let post_id = create_post_json["id"].as_str().expect("Missing 'id' in create response");
-    println!("Created post ID: {}\n", post_id);
-    println!("\nPost upload test completed successfully!");
+	// // -- Update comment
+	// let req_update_comment = hc.do_post(
+	// 	"/api/rpc",
+	// 	json!({
+	// 		"jsonrpc": "2.0",
+	// 		"id": 1,
+	// 		"method": "update_comment",
+	// 		"params": {
+	// 			"id": comment_id,
+	// 			"data": {
+	// 				"text": "updated comment 1.1",
+	// 			}
+	// 		}
+	// 	}),
+	// );
+	// let result = req_update_comment.await?;
+	// result.print().await?;
 
-    println!("\n--- Listing posts ---");
-    let response = client.get(&format!("{}/api/posts", BASE_URL)).send().await?;
-    print_response(response).await?;
-    println!("\nPost listing test completed successfully!");
+	// // // -- Delete comment
+	// let req_update_comment = hc.do_post(
+	// 	"/api/rpc",
+	// 	json!({
+	// 		"jsonrpc": "2.0",
+	// 		"id": 1,
+	// 		"method": "delete_comment",
+	// 		"params": {
+	// 			"id": comment_id,
+	// 		}
+	// 	}),
+	// );
+	// let result = req_update_comment.await?;
+	// result.print().await?;
 
-    println!("\n--- Getting post by ID ---");
-    let get_resp = client.get(&format!("{}/api/posts/{}", BASE_URL, post_id)).send().await?;
-    print_response(get_resp).await?;
-    println!("\nPost get by ID test completed successfully!");
+	// // -- List comments
+	// let req_update_comment = hc.do_post(
+	// 	"/api/rpc",
+	// 	json!({
+	// 		"jsonrpc": "2.0",
+	// 		"id": 1,
+	// 		"method": "list_comments",
+	// 		"params": {
+	// 			"id": post_detail_id,
+	// 		}
+	// 	}),
+	// );
+	// let result = req_update_comment.await?;
+	// result.print().await?;
 
-    println!("\n--- Updating post ---");
-    let image3 = format!("{}/image-3.jpg", ASSETS_DIR);
-    if !Path::new(&image3).exists() {
-        fs::copy(format!("{}/image-1.jpg", ASSETS_DIR), &image3)?;
-    }
+	// // -- List comment replies
+	// let req_update_comment = hc.do_post(
+	// 	"/api/rpc",
+	// 	json!({
+	// 		"jsonrpc": "2.0",
+	// 		"id": 1,
+	// 		"method": "list_comment_replies",
+	// 		"params": {
+	// 			"id": comment_id,
+	// 		}
+	// 	}),
+	// );
+	// let result = req_update_comment.await?;
+	// result.print().await?;
 
-    let update_form = multipart::Form::new()
-        .text("title", "Updated Title from Test")
-        .file("add_media", image3)
-        .await?;
+	// // -- Toggle like 
+	// let req_toggle_like = hc.do_post(
+	// 	"/api/rpc",
+	// 	json!({
+	// 		"jsonrpc": "2.0",
+	// 		"id": 1,
+	// 		"method": "toggle_like",
+	// 		"params": {
+	// 			"id": post_detail_id,
+	// 		}
+	// 	}),
+	// );
+	// let result = req_toggle_like.await?;
+	// result.print().await?;
 
-    let update_resp = client
-        .patch(&format!("{}/api/posts/{}", BASE_URL, post_id))
-        .multipart(update_form)
-        .send()
-        .await?;
-    print_response(update_resp).await?;
-    println!("\nPost update test completed successfully!");
+	// // -- Get likers
+	// let req_get_likers = hc.do_post(
+	// 	"/api/rpc",
+	// 	json!({
+	// 		"jsonrpc": "2.0",
+	// 		"id": 1,
+	// 		"method": "get_likers",
+	// 		"params": {
+	// 			"id": post_detail_id,
+	// 		}
+	// 	}),
+	// );
+	// let result = req_get_likers.await?;
+	// result.print().await?;
 
-    println!("\n--- Deleting post ---");
-    let delete_resp = client.delete(&format!("{}/api/posts/{}", BASE_URL, post_id)).send().await?;
-    print_response(delete_resp).await?;
-    println!("\nPost delete test completed successfully!");
+	// // -- Get likes
+	// let req_get_likes = hc.do_post(
+	// 	"/api/rpc",
+	// 	json!({
+	// 		"jsonrpc": "2.0",
+	// 		"id": 1,
+	// 		"method": "get_like_count",
+	// 		"params": {
+	// 			"id": post_detail_id,
+	// 		}
+	// 	}),
+	// );
+	// let result = req_get_likes.await?;
+	// result.print().await?;
 
-    println!("\nAPI test completed successfully!");
+	// // -- Save post to collection
+	// let req_save_to_collection = hc.do_post(
+	// 	"/api/rpc",
+	// 	json!({
+	// 		"jsonrpc": "2.0",
+	// 		"id": 1,
+	// 		"method": "save_to_collection",
+	// 		"params": {
+	// 			"data": {
+	// 				"post_id": post_detail_id,
+	// 				"option": "Default"
+	// 			}
+	// 		}
+	// 	}),
+	// );
+	// let result = req_save_to_collection.await?;
+	// result.print().await?;
+	// let collection_id: String = result.json_value("/result")?;
 
-    Ok(())
+	// // -- Unsave post from collection
+	// let req_save_to_collection = hc.do_post(
+	// 	"/api/rpc",
+	// 	json!({
+	// 		"jsonrpc": "2.0",
+	// 		"id": 1,
+	// 		"method": "unsave_from_collection",
+	// 		"params": {
+	// 			"data": {
+	// 				"post_id": post_detail_id,
+	// 				"collection_id": collection_id,
+	// 			}
+	// 		}
+	// 	}),
+	// );
+	// let result = req_save_to_collection.await?;
+	// result.print().await?;
+
+	// // -- Update post
+	// let req_update_post = hc.do_post(
+	// 	"/api/rpc",
+	// 	json!({
+	// 		"jsonrpc": "2.0",
+	// 		"id": 1,
+	// 		"method": "update_post_with_media_meta",
+	// 		"params": {
+	// 			"id": post_detail_id,
+	// 			"data": {
+	// 				"title": "Updated title",
+	// 				"status": "Published"
+	// 			}
+	// 		}
+	// 	}),
+	// );
+	// let result = req_update_post.await?;
+	// result.print().await?;
+	
+	// // -- Delete post
+	// let req_delete_post = hc.do_post(
+	// 	"/api/rpc",
+	// 	json!({
+	// 		"jsonrpc": "2.0",
+	// 		"id": 1,
+	// 		"method": "delete_post",
+	// 		"params": {
+	// 			"id": post_detail_id,
+	// 		}
+	// 	}),
+	// );
+	// let result = req_delete_post.await?;
+	// result.print().await?;
+
+	// -- Logout
+	let req_logout = hc.do_post(
+		"/api/logout",
+		json!({
+			"logout": true
+		}),
+	);
+	req_logout.await?.print().await?;
+
+	Ok(())
 }

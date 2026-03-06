@@ -10,5 +10,7 @@ pub fn serve_dir(web_folder: &'static str) -> MethodRouter {
         (StatusCode::NOT_FOUND, "Resource not found.")
     }
 
-    any_service(ServeDir::new(web_folder).not_found_service(handle_404.into_service()))
+    any_service(
+    ServeDir::new(web_folder)
+            .not_found_service(handle_404.into_service()))
 }

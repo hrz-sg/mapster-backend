@@ -1,7 +1,7 @@
-mod error;
+pub mod error;
 pub mod log;
 
-pub use error::Error;
+pub use error::{Error, Result};
 
 pub mod handlers;
 pub mod middleware;

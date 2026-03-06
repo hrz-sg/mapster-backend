@@ -6,7 +6,6 @@ use axum::{
 use derive_more::From;
 use lib_auth::token;
 use lib_core::service;
-use lib_storage::oss;
 use lib_utils::file;
 use serde::Serialize;
 use tracing::debug;
@@ -47,13 +46,16 @@ pub enum Error {
     // -- Service
     Service(service::Error),
 
-    // -- OSS
+    // -- Rpc
     #[from]
-    Oss(oss::Error),
+	Rpc(lib_rpc::Error),
 
     // -- File
     #[from]
     File(file::Error),
+
+    // -- External Modules
+    SerdeJson(String),
 }
 
 // region: ---- Froms
@@ -66,6 +68,12 @@ impl From<service::Error> for Error {
 impl From<serde_valid::validation::Errors> for Error {
     fn from(err: serde_valid::validation::Errors) -> Self {
         Self::ValidationFailed(err.to_string())
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(val: serde_json::Error) -> Self {
+        Self::SerdeJson(val.to_string())
     }
 }
 // endregion: ---- Froms
@@ -122,7 +130,7 @@ impl Error {
 
             // -- Entity not found
             Self::Service(service::Error::EntityNotFound { entity, id }) => (
-                StatusCode::NOT_FOUND,
+                StatusCode::BAD_REQUEST,
                 ClientError::ENTITY_NOT_FOUND { entity, id: id.clone() },
             ),
 

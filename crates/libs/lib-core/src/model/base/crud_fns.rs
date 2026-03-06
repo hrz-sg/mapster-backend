@@ -435,7 +435,7 @@ pub fn compute_list_options(list_options: Option<ListOptions>) -> Result<ListOpt
         Ok(ListOptions {
             limit: Some(LIST_LIMIT_DEFAULT),
             offset: None,
-            order_bys: Some("id".into()),
+            order_bys: Some("ctime".into()),
         })
     }
 }

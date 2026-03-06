@@ -51,7 +51,10 @@ impl UserFollowBmc {
         Ok(())
     }
 
-    pub async fn is_following(_ctx: &Ctx, mm: &ModelManager, follower_id: &str, following_id: &str) -> Result<bool> {
+    pub async fn is_following(ctx: &Ctx, mm: &ModelManager, following_id: &str) -> Result<bool> {
+        
+        let follower_id = ctx.user_id();
+
         let mut query = Query::select();
         query
             .expr(Expr::val(1))
@@ -71,7 +74,7 @@ impl UserFollowBmc {
         let mut query = Query::select();
 
         query
-            .columns([UserPublicIden::Id, UserPublicIden::Username, UserPublicIden::AvatarUrl])
+            .columns([UserPublicIden::Id, UserPublicIden::Username, UserPublicIden::AvatarObjectKey])
             .from(UserBmc::table_ref())
             .inner_join(
                 Self::table_ref(),
@@ -90,7 +93,7 @@ impl UserFollowBmc {
         let mut query = Query::select();
 
         query
-            .columns([UserPublicIden::Id, UserPublicIden::Username, UserPublicIden::AvatarUrl])
+            .columns([UserPublicIden::Id, UserPublicIden::Username, UserPublicIden::AvatarObjectKey])
             .from(UserBmc::table_ref())
             .inner_join(
                 Self::table_ref(),
@@ -175,15 +178,15 @@ mod tests {
         let root_ctx = Ctx::root_ctx();
 
         // -- Check if not following
-        assert!(!UserFollowBmc::is_following(&root_ctx, &mm, fx_follower, fx_following).await?);
+        assert!(!UserFollowBmc::is_following(&root_ctx, &mm, fx_following).await?);
 
         // -- Follow
         UserFollowBmc::follow(&ctx_follower, &mm, fx_following).await?;
-        assert!(UserFollowBmc::is_following(&root_ctx, &mm, fx_follower, fx_following).await?);
+        assert!(UserFollowBmc::is_following(&root_ctx, &mm, fx_following).await?);
 
         // -- Unfollow
         UserFollowBmc::unfollow(&ctx_follower, &mm, fx_following).await?;
-        assert!(!UserFollowBmc::is_following(&root_ctx, &mm, fx_follower, fx_following).await?);
+        assert!(!UserFollowBmc::is_following(&root_ctx, &mm, fx_following).await?);
 
         Ok(())
     }

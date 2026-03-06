@@ -1,5 +1,5 @@
 use crate::model;
-use crate::model::store::dbx;
+use crate::model::store::{dbx, oss};
 use derive_more::From;
 use lib_auth::pwd;
 use lib_utils::file;
@@ -16,7 +16,8 @@ pub enum Error {
     LoginUserHasNoPwd,
     LoginPwdNotMatching,
 
-    /// --- Token errors
+    /// --- Model errors
+    Model(model::Error),
 
     /// --- Errors for user
     EntityNotFound {
@@ -35,12 +36,12 @@ pub enum Error {
     #[from]
     Pwd(pwd::Error),
 
-    /// --- Technical errors
-    Internal,
-
     /// --- File errors
     #[from]
     File(file::Error),
+
+    #[from]
+    Oss(oss::Error),
 }
 
 impl Error {
@@ -59,10 +60,6 @@ impl Error {
     pub fn permission_denied(msg: impl Into<String>) -> Self {
         Error::PermissionDenied(msg.into())
     }
-
-    pub fn internal() -> Self {
-        Error::Internal
-    }
 }
 
 // region:    --- Froms
@@ -76,9 +73,12 @@ impl From<model::Error> for Error {
                 Error::EntityAlreadyExists(format!("{} already exists", table))
             }
 
-            model::Error::Dbx(_) => Error::Internal,
+            model::Error::PermissionDenied(msg) =>
+                Error::PermissionDenied(msg),
 
-            _ => Error::Internal,
+            other => {
+                Error::Model(other)
+            }
         }
     }
 }

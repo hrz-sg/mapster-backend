@@ -3,7 +3,7 @@ CREATE TABLE "user" (
     typ user_typ NOT NULL DEFAULT 'User',
     username VARCHAR(128) NOT NULL UNIQUE,
     email VARCHAR(256) NOT NULL UNIQUE,
-    avatar_url TEXT,
+    avatar_object_key TEXT,
     bio TEXT,
     location TEXT,
 

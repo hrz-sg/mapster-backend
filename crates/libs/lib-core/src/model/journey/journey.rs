@@ -2,12 +2,27 @@ use crate::ctx::Ctx;
 use crate::model::base::{self, DbBmc, TimestampType};
 use crate::model::{Error, ModelManager, Result};
 use modql::field::Fields;
-use modql::filter::{FilterNodes, ListOptions, OpValsBool, OpValsInt64, OpValsString};
+use modql::filter::{FilterNodes, ListOptions, OpValsInt64, OpValsString};
 use sea_query::{Expr, Iden, PostgresQueryBuilder, Query};
 use sea_query_binder::SqlxBinder;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
+
 // region: ---- Journey Types
+
+#[derive(Clone, Debug, sqlx::Type, derive_more::Display, Deserialize, Serialize, PartialEq)]
+#[sqlx(type_name = "journey_status")]
+pub enum JourneyStatus {
+    Draft,
+    Published,
+}
+
+// Covert custom JourneyStatus into sea_query::Value
+impl From<JourneyStatus> for sea_query::Value {
+    fn from(val: JourneyStatus) -> Self {
+        val.to_string().into()
+    }
+}
 
 #[derive(Debug, Clone, Fields, FromRow, Serialize)]
 pub struct Journey {
@@ -15,10 +30,11 @@ pub struct Journey {
     pub owner_id: String,
     pub title: String,
     pub description: String,
-    pub is_published: bool,
-    pub cover_media_url: Option<String>,
+    pub cover_object_key: Option<String>,
+    #[field(cast_as = "journey_status")]
+    pub status: JourneyStatus,
     pub total_likes: i64,
-    pub saved_count: i64,
+    pub save_count: i64,
     pub forward_count: i64,
 }
 
@@ -26,7 +42,7 @@ pub struct Journey {
 pub struct JourneyWithStats {
     pub journey: Journey,
     pub post_like_sum: i64, // likes sum of posts insde this current journey
-    pub saved_count: i64,
+    pub save_count: i64,
     pub forward_count: i64,
     pub current_user_saved: bool,
     pub current_user_forwarded: bool,
@@ -36,16 +52,18 @@ pub struct JourneyWithStats {
 pub struct JourneyForCreate {
     pub title: String,
     pub description: String,
-    pub cover_media_url: Option<String>,
-    pub is_published: Option<bool>,
+    pub cover_object_key: Option<String>,
+    #[field(cast_as = "journey_status")]
+    pub status: JourneyStatus,
 }
 
-#[derive(Fields, Default, Deserialize)]
+#[derive(Fields, Deserialize)]
 pub struct JourneyForUpdate {
     pub title: Option<String>,
     pub description: Option<String>,
-    pub is_published: Option<bool>,
-    pub cover_media_url: Option<String>,
+    #[field(cast_as = "journey_status")]
+    pub status: JourneyStatus,
+    pub cover_object_key: Option<String>,
 }
 
 #[derive(FilterNodes, Deserialize, Default, Debug)]
@@ -54,9 +72,10 @@ pub struct JourneyFilter {
     pub owner_id: Option<OpValsString>,
     pub title: Option<OpValsString>,
     pub description: Option<OpValsString>,
-    pub is_published: Option<OpValsBool>,
+    #[modql(cast_as = "journey_status")]
+    pub status: Option<JourneyStatus>,
     pub total_likes: Option<OpValsInt64>,
-    pub saved_count: Option<OpValsInt64>,
+    pub save_count: Option<OpValsInt64>,
 }
 
 // endregion: ---- Journey Types
@@ -68,7 +87,7 @@ pub enum JourneyIden {
     Id,
     #[iden = "like_count"]
     LikeCount,
-    #[iden = "saved_count"]
+    #[iden = "save_count"]
     SaveCount,
     #[iden = "forward_count"]
     ForwardCount,
@@ -193,11 +212,11 @@ impl JourneyBmc {
         }
     }
 
-    pub async fn increment_saved_count(ctx: &Ctx, mm: &ModelManager, journey_id: &str) -> Result<()> {
+    pub async fn increment_save_count(ctx: &Ctx, mm: &ModelManager, journey_id: &str) -> Result<()> {
         Self::update_counter(ctx, mm, journey_id, CounterType::SaveCount, 1).await
     }
 
-    pub async fn decrement_saved_count(ctx: &Ctx, mm: &ModelManager, journey_id: &str) -> Result<()> {
+    pub async fn decrement_save_count(ctx: &Ctx, mm: &ModelManager, journey_id: &str) -> Result<()> {
         Self::update_counter(ctx, mm, journey_id, CounterType::SaveCount, -1).await
     }
 

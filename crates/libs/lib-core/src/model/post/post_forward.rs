@@ -67,12 +67,12 @@ impl PostForwardBmc {
     pub async fn create_on_conflict(
         ctx: &Ctx,
         mm: &ModelManager,
-        journey_forward_c: PostForwardForCreate,
+        post_forawrd_c: PostForwardForCreate,
     ) -> Result<bool> {
         base::create_on_conflict::<Self, _, _>(
             ctx,
             mm,
-            journey_forward_c,
+            post_forawrd_c,
             &[PostForwardIden::PostId, PostForwardIden::UserId, PostForwardIden::ChatId],
         )
         .await

@@ -1,7 +1,6 @@
 // region:    --- Modules
 
 mod error;
-
 pub use error::{Error, Result};
 
 use crate::model::store::Db;

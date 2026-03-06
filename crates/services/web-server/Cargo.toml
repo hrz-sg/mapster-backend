@@ -8,9 +8,9 @@ edition = "2024"
 lib-utils = { path = "../../libs/lib-utils"}
 lib-auth = { path = "../../libs/lib-auth"}
 lib-core = { path = "../../libs/lib-core"}
+lib-rpc = { path = "../../libs/lib-rpc"}
 lib-web = { path = "../../libs/lib-web"}
 lib-tmail = { path = "../../libs/lib-tmail"}
-lib-storage = { path = "../../libs/lib-storage"}
 # -- Async
 tokio = { version = "1", features = ["full"] }
 # -- Json
@@ -32,3 +32,4 @@ dotenvy = "0.15"
 reqwest = { workspace = true }
 
 [dev-dependencies]
+httpc-test = "0.1"

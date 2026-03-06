@@ -26,6 +26,7 @@ pub struct PostLikeFilter {
 #[derive(Debug, Fields, Deserialize)]
 pub struct PostLikeForCreate {
     pub post_id: String,
+    pub user_id: String,
 }
 
 #[derive(Iden, Clone)]
@@ -74,6 +75,7 @@ impl PostLikeBmc {
     pub async fn create(ctx: &Ctx, mm: &ModelManager, post_id: &str) -> Result<()> {
         let item_c = PostLikeForCreate {
             post_id: post_id.to_string(),
+            user_id: ctx.user_id().to_owned(),
         };
 
         base::create_on_conflict::<Self, _, _>(ctx, mm, item_c, &[PostLikeIden::PostId, PostLikeIden::UserId]).await?;
@@ -144,7 +146,7 @@ impl PostLikeBmc {
             .columns([
                 (UserBmc::TABLE, UserPublicIden::Id),
                 (UserBmc::TABLE, UserPublicIden::Username),
-                (UserBmc::TABLE, UserPublicIden::AvatarUrl),
+                (UserBmc::TABLE, UserPublicIden::AvatarObjectKey),
             ])
             .from(UserBmc::table_ref())
             .join(

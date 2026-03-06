@@ -1,4 +1,5 @@
 // region: --- Modules
+
 use crate::error::Result;
 use axum::Json;
 use axum::extract::State;
@@ -7,6 +8,7 @@ use lib_core::{ctx::Ctx, service::user::UserService};
 use serde::{Deserialize, Serialize};
 use serde_valid::Validate;
 use tracing::debug;
+
 // endregion: --- Modules
 
 // region: --- Email Verification

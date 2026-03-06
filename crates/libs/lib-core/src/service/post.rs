@@ -1,8 +1,12 @@
 use crate::ctx::Ctx;
 use crate::model::comment::{Comment, CommentBmc, CommentEntityType, CommentForCreate, CommentForUpdate};
 use crate::model::post::{
-    PostCollection, PostCollectionBmc, PostCollectionForCreate, PostCollectionItemBmc, PostDetail, PostFeedItem,
-    PostFilter, PostForwardBmc, PostForwardForCreate, PostLikeBmc, PostStats,
+    MediaType, PostCollection, 
+    PostCollectionBmc, PostCollectionForCreate, 
+    PostCollectionItemBmc, PostDetail, PostFeedItem, 
+    PostFilter, PostForUpdate, PostForwardBmc, 
+    PostForwardForCreate, PostLikeBmc, 
+    PostMediaForDisplay, PostProfileItem, PostStats, PostStatus
 };
 use crate::model::user::{User, UserBmc, UserForPreview};
 use crate::model::{
@@ -11,14 +15,13 @@ use crate::model::{
     post_media::{PostMediaBmc, PostMediaForCreate},
 };
 use crate::service::error::{Error, Result};
-use crate::service::media_storage::{MediaStorageService, Storage};
 use crate::service::post_media::PostMediaService;
-use crate::service::thumbnail::ThumbnailService;
-use lib_utils::file::validate_file;
-use modql::filter::ListOptions;
+use modql::filter::{ListOptions, OpValsString};
+use serde::{Deserialize};
+use tracing::{debug, info};
 use std::collections::HashMap;
-use tracing::info;
 
+#[derive(Debug, Deserialize)]
 pub enum SaveToCollectionOption {
     Default,
     Existing { collection_id: String },
@@ -28,110 +31,131 @@ pub enum SaveToCollectionOption {
 pub struct PostService;
 
 impl PostService {
-    /// --- Create post with media files
-    pub async fn create_with_media(ctx: &Ctx, mm: &ModelManager, payload: CreatePostPayload) -> Result<String> {
+    pub async fn create_with_media_meta(
+        ctx: &Ctx,
+        mm: &ModelManager,
+        payload: CreatePostPayload,
+    ) -> Result<String> {
+
         let CreatePostPayload {
             title,
             description,
-            media,
-            thumbnail,
+            medias,
+            user_cover_key, 
         } = payload;
 
-        // --- services
-        let storage = MediaStorageService::new();
+        if medias.is_empty() {
+            return Err(Error::validation_failed("Post must have at least one media"));
+        }
 
-        // -- Create tx manager
+        info!("Creating post: {}", title);
+
+        let first_media = &medias[0];
+        let mut metas = Vec::with_capacity(medias.len());
+
+        // -- Validate files exist in OSS
+        for media in &medias {
+            let meta = mm.bucket().head_object(&media.object_key).await?;
+
+            // validate mime_type vs media_type
+            match media.media_type {
+                MediaType::Image if !media.mime_type.starts_with("image/") => {
+                    return Err(Error::validation_failed("Invalid mime type for image"));
+                }
+                MediaType::Video if !media.mime_type.starts_with("video/") => {
+                    return Err(Error::validation_failed("Invalid mime type for video"));
+                }
+                _ => {}
+            }
+
+            metas.push(meta);
+        }
+
         let mm_txn = mm.new_with_txn()?;
         let dbx = mm_txn.dbx();
         dbx.begin_txn().await?;
 
-        let mut media_infos = Vec::new();
-        let mut has_video = false;
+        // -- Determine cover media
+        let cover_media_key = user_cover_key
+            .unwrap_or_else(|| first_media.object_key.clone());
 
-        // -- Upload all media
-        for (filename, data) in &media {
-            let (mime, media_type) = validate_file(filename, data)?;
-            let media_url = storage.upload(filename, data, &mime).await?;
-            if media_type == "video" {
-                has_video = true;
-            }
-            media_infos.push((media_url, mime, media_type.to_string(), data.clone()));
-        }
-
-        // -- Create cover & thumbnail
-        let (cover_media_url, thumbnail_url) = if let Some(first) = media_infos.first() {
-            let cover_url = first.0.clone();
-
-            // if clients sends thumbnail - use it
-            if let Some(ref thumb_bytes) = thumbnail {
-                let thumb_url = ThumbnailService::generate_and_upload(&first.1, &first.3, Some(thumb_bytes)).await?;
-                (Some(cover_url), Some(thumb_url))
-            }
-            // if video — autogenerate thumbnail
-            else if first.2 == "video" {
-                let thumb_url = ThumbnailService::generate_and_upload(&first.1, &first.3, None).await?;
-                (Some(cover_url), Some(thumb_url))
-            }
-            // if photo — thumbnail = cover
-            else {
-                (Some(cover_url.clone()), Some(cover_url))
-            }
-        } else {
-            (None, None)
+        let post_c = PostForCreate { 
+            title, 
+            description, 
+            status: PostStatus::Published, 
+            cover_media_key,
         };
 
-        // -- Create post
-        let post_id = PostBmc::create(
-            ctx,
-            &mm_txn,
-            PostForCreate {
-                title,
-                description,
-                is_published: Some(true),
-                cover_media_url,
-                thumbnail_url,
-                media_count: Some(media_infos.len() as i32),
-                has_video: Some(has_video),
-            },
-        )
-        .await?;
+        let post_id = PostBmc::create(ctx, &mm_txn, post_c).await?;
 
-        // -- Save post media data
-        for (i, (url, mime, media_type, data)) in media_infos.into_iter().enumerate() {
-            PostMediaBmc::create(
-                ctx,
-                &mm_txn,
-                PostMediaForCreate {
-                    post_id: post_id.clone(),
-                    media_url: url,
-                    media_type,
-                    mime_type: mime,
-                    width: None,
-                    height: None,
-                    file_size: Some(data.len() as i64),
-                    duration: None,
-                    sort_order: i as i32,
-                },
-            )
-            .await?;
-        }
+        // -- Create PostMedia
+        let post_medias_c: Vec<PostMediaForCreate> = medias
+            .iter()
+            .zip(metas.iter())
+            .enumerate()
+            .map(|(idx, (media, meta))| PostMediaForCreate {
+                post_id: post_id.clone(),
+                object_key: media.object_key.clone(),
+                media_type: media.media_type.clone(),
+                mime_type: media.mime_type.clone(),
+                etag: meta.etag.clone(),
+                file_size: meta.content_length as i64,
+                width: media.width,
+                height: media.height,
+                duration: media.duration,
+                sort_order: idx as i32,
+            })
+            .collect();
+
+        // --- Batch insert
+        let _ids = PostMediaBmc::create_many(ctx, &mm_txn, post_medias_c).await?;
 
         dbx.commit_txn().await?;
+
+        info!("Post created successfully: {}", post_id);
+
         Ok(post_id)
     }
 
-    /// --- Get post details
-    pub async fn get_post_detail_by_id(ctx: &Ctx, mm: &ModelManager, post_id: &str) -> Result<PostDetail> {
-        // -- Get the post itself
-        let post = PostBmc::get(ctx, mm, post_id).await?;
+    pub async fn get_post_detail(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        post_id: &str,
+    ) -> Result<PostDetail> {
 
-        // -- Get Post author
-        let user: User = UserBmc::get(ctx, mm, &post.owner_id).await?;
+        debug!("Fetching post detail: {}", post_id);
+
+        let mm_txn = mm.new_with_txn()?;
+        let dbx = mm_txn.dbx();
+        dbx.begin_txn().await?;
+
+        // -- Get post
+        let post = PostBmc::get(ctx, &mm_txn, post_id).await?;
+
+        // -- Get author
+        let user: User = UserBmc::get(ctx, &mm_txn, &post.owner_id).await?;
 
         // -- Get all Post Medias
-        let medias = PostMediaBmc::list_by_post(ctx, mm, post_id).await?;
+        let medias = PostMediaBmc::list_by_post(ctx, &mm_txn, post_id).await?;
 
-        let user_liked = PostLikeBmc::user_liked_post(ctx, mm, post_id).await?;
+        let media_endpoint = &mm_txn.bucket().public_base;
+
+        // -- Generate media URLs
+        let medias: Vec<PostMediaForDisplay> = medias
+            .into_iter()
+            .map(|m| PostMediaForDisplay {
+                id: m.id,
+                post_id: post.id.clone(),
+                url: format!("{media_endpoint}{}", m.object_key), // generate URLs as we store only object keys in DB
+                media_type: m.media_type,
+                mime_type: m.mime_type,
+                sort_order: m.sort_order,
+            })
+            .collect();
+
+        let user_liked = PostLikeBmc::user_liked_post(ctx, &mm_txn, post_id).await?;
+
+        dbx.commit_txn().await?;
 
         // -- Create and send PostDetail
         Ok(PostDetail {
@@ -141,9 +165,10 @@ impl PostService {
             author: UserForPreview {
                 id: user.id,
                 username: user.username,
-                avatar_url: user.avatar_url,
+                avatar_object_key: user.avatar_object_key
+                    .map(|key| format!("{media_endpoint}{key}")),
             },
-            thumbnail_url: post.thumbnail_url,
+            cover_url: format!("{media_endpoint}{}", post.cover_media_key),
             medias,
             stats: PostStats {
                 like_count: post.like_count,
@@ -157,45 +182,44 @@ impl PostService {
         })
     }
 
-    /// --- Get posts list for feed
-    pub async fn list_feed_posts(ctx: &Ctx, mm: &ModelManager, limit: u32) -> Result<Vec<PostFeedItem>> {
-        let list_options = ListOptions {
-            limit: Some(limit.into()),
-            offset: None,
-            order_bys: Some("RANDOM()".into()),
-        };
+    pub async fn list_feed_posts(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        filters: Option<Vec<PostFilter>>,
+        options: Option<ListOptions>,
+    ) -> Result<Vec<PostFeedItem>> {
 
-        let posts = PostBmc::list(ctx, mm, None, Some(list_options)).await?;
+        debug!("Fetching feed posts");
 
-        let user_ids: Vec<String> = posts.iter().map(|p| p.owner_id.clone()).collect();
+        let posts = PostBmc::list(ctx, mm, filters, options).await?;
+
+        let user_ids: Vec<String> = 
+            posts.iter().map(|p| p.owner_id.clone()).collect();
 
         let users = UserBmc::list_by_ids(ctx, mm, &user_ids).await?;
-        let user_map: HashMap<String, UserForPreview> = users.into_iter().map(|u| (u.id.clone(), u)).collect();
+
+        let user_map: HashMap<String, UserForPreview> =
+            users.into_iter().map(|u| (u.id.clone(), u)).collect();
+
+        let media_endpoint = &mm.bucket().public_base;
 
         let feed = posts
             .into_iter()
             .map(|post| {
-                let user = user_map.get(&post.owner_id);
-                let author = user.map_or(
-                    UserForPreview {
+                let author = user_map
+                    .get(&post.owner_id)
+                    .cloned()
+                    .unwrap_or(UserForPreview {
                         id: post.owner_id,
-                        username: "Unknown".into(),
-                        avatar_url: None,
-                    },
-                    |u| UserForPreview {
-                        id: u.id.clone(),
-                        username: u.username.clone(),
-                        avatar_url: u.avatar_url.clone(),
-                    },
-                );
+                        username: "".into(),
+                        avatar_object_key: None,
+                    });
 
                 PostFeedItem {
                     id: post.id,
                     title: post.title,
                     author,
-                    thumbnail_url: post.thumbnail_url,
-                    media_count: post.media_count,
-                    has_video: post.has_video,
+                    cover_url: format!("{media_endpoint}{}", post.cover_media_key),
                     like_count: post.like_count,
                 }
             })
@@ -204,19 +228,49 @@ impl PostService {
         Ok(feed)
     }
 
-    /// --- Get user posts
-    pub async fn list_user_posts(ctx: &Ctx, mm: &ModelManager, user_id: &str) -> Result<Vec<PostFeedItem>> {
-        // -- Create filters
-        let filters = vec![PostFilter::by_user(user_id)];
+    pub async fn list_user_posts(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        user_id: String,
+    ) -> Result<Vec<PostProfileItem>> {
 
+        // -- Determine whose profile to view
+        let viewer_id = ctx.user_id();
+        let is_my_profile = viewer_id == user_id;
+
+        debug!("Fetching profile posts for user: {}", user_id);
+
+        // -- Determine status filter
+        let status_filter = if is_my_profile {
+            Some(vec![PostStatus::Published, PostStatus::Draft])
+        } else {
+            Some(vec![PostStatus::Published])
+        };
+
+        let filters = vec![PostFilter {
+            owner_id: Some(OpValsString::from(user_id.clone())),
+            status: status_filter,
+            id: None,
+            title: None,
+        }];
+
+        let list_options = ListOptions {
+            limit: Some(20),
+            offset: Some(0),
+            order_bys: Some("!ctime".into()),
+        };
+
+        dbg!(&user_id);
         // -- Get User posts
-        let posts = PostBmc::list(ctx, mm, Some(filters), None).await?;
-
-        // TODO: NEED JOIN FOR POSTS & USERS TO AVOID N+1
+        let posts = PostBmc::list(ctx, mm, Some(filters), Some(list_options)).await?;
+        dbg!(&posts);
 
         // -- Get User data
-        let users = UserBmc::list_by_ids(ctx, mm, &[user_id.to_string()]).await?;
-        let user_map: HashMap<String, UserForPreview> = users.into_iter().map(|u| (u.id.clone(), u)).collect();
+        let users = UserBmc::list_by_ids(ctx, mm, &[user_id.clone()]).await?;
+        let user_map: HashMap<String, UserForPreview> =
+            users.into_iter().map(|u| (u.id.clone(), u)).collect();
+
+        let media_endpoint = &mm.bucket().public_base;
 
         // -- Create DTO
         let feed = posts
@@ -226,24 +280,24 @@ impl PostService {
                 let author = user.map_or(
                     UserForPreview {
                         id: post.owner_id,
-                        username: "Unknown".into(),
-                        avatar_url: None,
+                        username: "".into(),
+                        avatar_object_key: None,
                     },
                     |u| UserForPreview {
                         id: u.id.clone(),
                         username: u.username.clone(),
-                        avatar_url: u.avatar_url.clone(),
+                        avatar_object_key: u.avatar_object_key.clone()
+                            .map(|key| format!("{media_endpoint}{key}")),
                     },
                 );
 
-                PostFeedItem {
+                PostProfileItem {
                     id: post.id,
                     title: post.title,
                     author,
-                    thumbnail_url: post.thumbnail_url,
-                    media_count: post.media_count,
-                    has_video: post.has_video,
+                    cover_url: format!("{media_endpoint}{}", post.cover_media_key),
                     like_count: post.like_count,
+                    status: post.status,
                 }
             })
             .collect();
@@ -251,18 +305,27 @@ impl PostService {
         Ok(feed)
     }
 
-    // Toggle likes
     pub async fn create_comment(
         ctx: &Ctx,
         mm: &ModelManager,
-        post_id: &str,
-        text: String,
-        parent_id: Option<String>,
+        payload: CreatePostCommentPayload,
     ) -> Result<Comment> {
-        // -- Check if post exists
-        let post = PostBmc::get(ctx, mm, post_id).await?;
 
-        if !post.is_published && post.owner_id != ctx.user_id() {
+        let CreatePostCommentPayload {
+            post_id,
+            text,
+            parent_id,
+        } = payload;
+
+        info!("Creating comment to the post: {}", post_id);
+
+        // -- Check if post exists
+        let post = PostBmc::get(ctx, mm, &post_id).await?;
+
+        // -- Validate the owner and the status
+        let is_published = post.status == PostStatus::Published;
+
+        if !is_published {
             return Err(Error::validation_failed("Cannot comment on unpublished post"));
         }
 
@@ -275,6 +338,7 @@ impl PostService {
         }
 
         // -- Create comment
+        // TODO: add medias to comment
         let comment_c = CommentForCreate {
             entity_type: CommentEntityType::Post,
             entity_id: post_id.to_string(),
@@ -289,42 +353,27 @@ impl PostService {
         let comment_id = CommentBmc::create(ctx, &mm_txn, comment_c).await?;
 
         // -- Increment comment count
-        PostBmc::increment_comment_count(ctx, &mm_txn, post_id).await?;
+        PostBmc::increment_comment_count(ctx, &mm_txn, &post_id).await?;
 
         let comment = CommentBmc::get(ctx, &mm_txn, &comment_id).await?;
 
         dbx.commit_txn().await?;
 
+        info!("Comment created successfully: {}", comment_id);
+
         Ok(comment)
     }
 
-    pub async fn delete_comment(ctx: &Ctx, mm: &ModelManager, comment_id: &str) -> Result<()> {
-        let mm_txn = mm.new_with_txn()?;
-        let dbx = mm_txn.dbx();
-        dbx.begin_txn().await?;
+    pub async fn update_comment(
+        ctx: &Ctx, 
+        mm: &ModelManager,
+        comment_id: String,
+        comment_u: CommentForUpdate,
+    ) -> Result<Comment> {
 
-        let comment = CommentBmc::get(ctx, &mm_txn, comment_id).await?;
+        info!("Updating comment: {}", comment_id);
 
-        // -- Validate the owner
-        let post = PostBmc::get(ctx, &mm_txn, &comment.entity_id).await?;
-        if comment.owner_id != ctx.user_id() && post.owner_id != ctx.user_id() {
-            return Err(Error::permission_denied(
-                "You don't have permission to delete this comment",
-            ));
-        }
-
-        CommentBmc::delete(ctx, &mm_txn, comment_id).await?;
-
-        // -- Decrement comment count
-        PostBmc::decrement_comment_count(ctx, &mm_txn, &comment.entity_id).await?;
-
-        dbx.commit_txn().await?;
-        Ok(())
-    }
-
-    /// --- Update comment
-    pub async fn update_comment(ctx: &Ctx, mm: &ModelManager, comment_id: &str, text: String) -> Result<Comment> {
-        let comment = CommentBmc::get(ctx, mm, comment_id).await?;
+        let comment = CommentBmc::get(ctx, mm, &comment_id).await?;
 
         // -- Check permission
         if comment.owner_id != ctx.user_id() {
@@ -332,88 +381,118 @@ impl PostService {
         }
 
         let post = PostBmc::get(ctx, mm, &comment.entity_id).await?;
-        if !post.is_published && post.owner_id != ctx.user_id() {
-            return Err(Error::permission_denied("Cannot edit comment on unpublished post"));
+
+        // -- Validate the owner and the status
+        let is_owner = post.owner_id == ctx.user_id();
+        let is_published = post.status == PostStatus::Published;
+
+        if !is_published && !is_owner {
+            return Err(Error::validation_failed("Cannot edit comment on unpublished post"));
         }
 
-        let comment_u = CommentForUpdate { text };
-        CommentBmc::update(ctx, mm, comment_id, comment_u).await?;
+        let _ = CommentBmc::update(ctx, mm, &comment_id, comment_u).await?;
+        let updated_comment = CommentBmc::get(ctx, mm, &comment_id).await?;
 
-        let updated_comment = CommentBmc::get(ctx, mm, comment_id).await?;
+        info!("Comment updated successfully");
+
         Ok(updated_comment)
     }
 
-    /// -- Get list of comments for a post
-    pub async fn list_comments(ctx: &Ctx, mm: &ModelManager, post_id: &str, limit: u32) -> Result<Vec<Comment>> {
-        let list_options = ListOptions {
-            limit: Some(limit.into()),
-            offset: None,
-            order_bys: None,
-        };
+    pub async fn delete_comment(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        comment_id: String
+    ) -> Result<()> {
 
-        // -- Check if post exists
-        let post = PostBmc::get(ctx, mm, post_id).await?;
+        debug!("Deleting comment: {}", comment_id);
 
-        // -- Check access
-        if !post.is_published && post.owner_id != ctx.user_id() {
-            return Err(Error::validation_failed("Access denied"));
+        let comment = CommentBmc::get(ctx, mm, &comment_id).await?;
+        let post = PostBmc::get(ctx, mm, &comment.entity_id).await?;
+
+        if comment.owner_id != ctx.user_id() && post.owner_id != ctx.user_id() {
+            return Err(Error::permission_denied(
+                "You don't have permission to delete this comment",
+            ));
         }
 
+        let mm_txn = mm.new_with_txn()?;
+        let dbx = mm_txn.dbx();
+        dbx.begin_txn().await?;
+
+        // -- Delete comment
+        CommentBmc::delete(ctx, &mm_txn, &comment_id).await?;
+
+        // -- Decrement comment count
+        PostBmc::decrement_comment_count(ctx, &mm_txn, &comment.entity_id).await?;
+
+        dbx.commit_txn().await?;
+
+        Ok(())
+    }
+
+    pub async fn list_comments(
+        ctx: &Ctx,
+        mm: &ModelManager, 
+        post_id: String,
+    ) -> Result<Vec<Comment>> {
+
+        debug!("Fetching comments for post: {}", post_id);
+
+        // -- Check if post exists
+        let _post = PostBmc::exists(ctx, mm, &post_id).await?;
+
         let comments =
-            CommentBmc::list_by_entity(ctx, mm, CommentEntityType::Post, post_id, Some(list_options)).await?;
+            CommentBmc::list_by_entity(ctx, mm, CommentEntityType::Post, &post_id).await?;
 
         Ok(comments)
     }
 
-    /// --- List comment replies
     pub async fn list_comment_replies(
         ctx: &Ctx,
         mm: &ModelManager,
-        comment_id: &str,
-        limit: u32,
+        comment_id: String,
     ) -> Result<Vec<Comment>> {
-        let list_options = ListOptions {
-            limit: Some(limit.into()),
-            offset: None,
-            order_bys: None,
-        };
 
-        let comment = CommentBmc::get(ctx, mm, comment_id).await?;
+        debug!("Fetching comment replies for comment: {}", comment_id);
 
-        // -- Check access
-        let post = PostBmc::get(ctx, mm, &comment.entity_id).await?;
-        if !post.is_published && post.owner_id != ctx.user_id() {
-            return Err(Error::validation_failed("Access denied"));
-        }
+        let _comment = CommentBmc::get(ctx, mm, &comment_id).await?;
 
-        let replies = CommentBmc::list_replies(ctx, mm, comment_id, Some(list_options)).await?;
+        // TODO: add list options
+        let replies = CommentBmc::list_replies(ctx, mm, &comment_id, None).await?;
+
         Ok(replies)
     }
 
-    /// --- Toggle like (increment / decrement)
-    pub async fn toggle_like(ctx: &Ctx, mm: &ModelManager, post_id: &str) -> Result<(bool, i64)> {
+    pub async fn toggle_like(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        post_id: String
+    ) -> Result<(bool, i64)> {
+
+        debug!("Toggle like for post: {}", post_id);
+
         let mm_txn = mm.new_with_txn()?;
         let dbx = mm_txn.dbx();
         dbx.begin_txn().await?;
 
         // -- Check if post exist
-        PostBmc::get(ctx, &mm_txn, post_id).await?;
+        PostBmc::exists(ctx, &mm_txn, &post_id).await?;
 
         // -- Check if liked by user
-        let liked = PostLikeBmc::user_liked_post(ctx, &mm_txn, post_id).await?;
+        let liked = PostLikeBmc::user_liked_post(ctx, &mm_txn, &post_id).await?;
 
         if liked {
             // -- Decrement like
-            PostLikeBmc::delete_simple(ctx, &mm_txn, post_id).await?;
-            PostBmc::decrement_like_count(ctx, &mm_txn, post_id).await?;
+            PostLikeBmc::delete_simple(ctx, &mm_txn, &post_id).await?;
+            PostBmc::decrement_like_count(ctx, &mm_txn, &post_id).await?;
         } else {
             // -- Increment like
-            PostLikeBmc::create(ctx, &mm_txn, post_id).await?;
-            PostBmc::increment_like_count(ctx, &mm_txn, post_id).await?;
+            PostLikeBmc::create(ctx, &mm_txn, &post_id).await?;
+            PostBmc::increment_like_count(ctx, &mm_txn, &post_id).await?;
         }
 
         // -- Get updated
-        let post = PostBmc::get(ctx, &mm_txn, post_id).await?;
+        let post = PostBmc::get(ctx, &mm_txn, &post_id).await?;
 
         dbx.commit_txn().await?;
 
@@ -423,38 +502,57 @@ impl PostService {
     pub async fn get_likers(
         ctx: &Ctx,
         mm: &ModelManager,
-        post_id: &str,
-        limit: Option<u32>,
+        post_id: String,
     ) -> Result<Vec<UserForPreview>> {
-        // -- Check post exists
-        PostBmc::exists(ctx, mm, post_id).await?;
 
-        let users = PostLikeBmc::get_likers_with_user_preview(ctx, mm, post_id, limit).await?;
+        debug!("Fetching likers for post: {}", post_id);
+
+        // -- Check post exists
+        PostBmc::exists(ctx, mm, &post_id).await?;
+
+        // TODO: add limit
+        let users = PostLikeBmc::get_likers_with_user_preview(ctx, mm, &post_id, None).await?;
         Ok(users)
     }
 
-    pub async fn get_like_count(ctx: &Ctx, mm: &ModelManager, post_id: &str) -> Result<i64> {
-        let post = PostBmc::get(ctx, mm, post_id).await?;
+    pub async fn get_like_count(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        post_id: String
+    ) -> Result<i64> {
+
+        debug!("Fetching likes for post: {}", post_id);
+
+        let post = PostBmc::get(ctx, mm, &post_id).await?;
+
         Ok(post.like_count)
     }
 
     pub async fn save_to_collection(
         ctx: &Ctx,
         mm: &ModelManager,
-        post_id: &str,
-        option: SaveToCollectionOption,
-    ) -> Result<()> {
-        info!("User {} saving post: {}", ctx.user_id(), post_id);
+        payload: SavePostToCollectionPayload,
+    ) -> Result<String> {
+
+        let SavePostToCollectionPayload {
+            post_id,
+            option
+        } = payload;
+
+        info!("User {} saving post to collection: {}", ctx.user_id(), post_id);
 
         let mm_txn = mm.new_with_txn()?;
         let dbx = mm_txn.dbx();
         dbx.begin_txn().await?;
 
         // -- Get the post
-        let post = PostBmc::get(ctx, &mm_txn, post_id).await?;
+        let post = PostBmc::get(ctx, &mm_txn, &post_id).await?;
 
         // -- Save only published posts or own posts
-        if !post.is_published && post.owner_id != ctx.user_id() {
+        let is_owner = post.owner_id == ctx.user_id();
+        let is_published = post.status == PostStatus::Published;
+
+        if !is_published && !is_owner {
             dbx.rollback_txn().await?;
             return Err(Error::permission_denied("Cannot save unpublished post"));
         }
@@ -463,118 +561,205 @@ impl PostService {
         let collection = Self::resolve_collection(ctx, mm, option).await?;
 
         // -- Add post to collection (ON CONFLICT DO NOTHING)
-        let is_added = PostCollectionItemBmc::add_to_collection(ctx, &mm_txn, &collection.id, post_id).await?;
+        let is_added = PostCollectionItemBmc::add_to_collection(ctx, &mm_txn, &collection.id, &post_id).await?;
 
         // -- Update counter only if actually added (not a duplicate)
         if is_added {
-            PostBmc::increment_save_count(ctx, &mm_txn, post_id).await?;
+            PostBmc::increment_save_count(ctx, &mm_txn, &post_id).await?;
         }
 
         dbx.commit_txn().await?;
-        Ok(())
+
+        info!("User successfully saved the post to collection: {}", post_id);
+
+        Ok(collection.id)
     }
 
     pub async fn unsave_from_collection(
         ctx: &Ctx,
         mm: &ModelManager,
-        post_id: &str,
-        collection_id: &str,
+        payload: UnsavePostFromCollectionPayload,
     ) -> Result<()> {
+
+        let UnsavePostFromCollectionPayload {
+            post_id,
+            collection_id
+        } = payload;
+        
+        info!("User {} unsaving post: {}", ctx.user_id(), post_id);
+
         let mm_txn = mm.new_with_txn()?;
         let dbx = mm_txn.dbx();
         dbx.begin_txn().await?;
 
         // -- Check post exists
-        PostBmc::exists(ctx, &mm_txn, post_id).await?;
+        PostBmc::exists(ctx, &mm_txn, &post_id).await?;
 
-        PostCollectionItemBmc::remove_from_collection(ctx, &mm_txn, collection_id, post_id).await?;
+        PostCollectionItemBmc::remove_from_collection(ctx, &mm_txn, &collection_id, &post_id).await?;
 
-        PostBmc::decrement_save_count(ctx, &mm_txn, post_id).await?;
+        PostBmc::decrement_save_count(ctx, &mm_txn, &post_id).await?;
 
         dbx.commit_txn().await?;
+
+        info!("User successfully unsaved the post: {}", post_id);
+
         Ok(())
     }
 
-    pub async fn forward_post(ctx: &Ctx, mm: &ModelManager, post_id: &str, chat_id: &str) -> Result<()> {
+    // TODO: ADD TEST WITH CHAT
+    pub async fn forward_post(
+        ctx: &Ctx, 
+        mm: &ModelManager,
+        post_forawrd_c: PostForwardForCreate, 
+    ) -> Result<()> {
+
+        info!("Forwarding post: {}", &post_forawrd_c.post_id);
+
+        let post_id = post_forawrd_c.post_id.clone();
+
         let mm_txn = mm.new_with_txn()?;
         let dbx = mm_txn.dbx();
         dbx.begin_txn().await?;
 
-        let post = PostBmc::get(ctx, &mm_txn, post_id).await?;
+        let post = PostBmc::get(ctx, &mm_txn, &post_id).await?;
 
-        if !post.is_published {
+        let is_published = post.status == PostStatus::Published;
+
+        if !is_published {
             dbx.rollback_txn().await?;
-            return Err(Error::validation_failed("Cannot forward unpublished post"));
+            return Err(Error::permission_denied("Cannot save unpublished post"));
         }
 
-        let forward_c = PostForwardForCreate {
-            post_id: post_id.to_string(),
-            chat_id: chat_id.to_string(),
-        };
-
-        let is_added = PostForwardBmc::create_on_conflict(ctx, &mm_txn, forward_c).await?;
+        let is_added = PostForwardBmc::create_on_conflict(ctx, &mm_txn, post_forawrd_c).await?;
 
         // -- Increment forward count only if forwarded
         if is_added {
-            PostBmc::increment_forward_count(ctx, &mm_txn, post_id).await?;
+            PostBmc::increment_forward_count(ctx, &mm_txn, &post_id).await?;
         }
 
         dbx.commit_txn().await?;
+
         Ok(())
     }
 
-    // --- Update post
-    pub async fn update_with_media(
+    pub async fn update_post_with_media_meta(
         ctx: &Ctx,
         mm: &ModelManager,
-        post_id: &str,
+        post_id: String,
         payload: UpdatePostPayload,
     ) -> Result<()> {
+
+        info!("Updating post: {}", post_id);
+
         let mm_txn = mm.new_with_txn()?;
         let dbx = mm_txn.dbx();
         dbx.begin_txn().await?;
 
-        let media_svc = PostMediaService::default();
-
-        if let Some(ids) = &payload.remove_ids {
-            media_svc.delete_many(ctx, &mm_txn, ids).await?;
+        // -- Delete old medias
+        if let Some(remove_ids) = &payload.remove_ids {
+            PostMediaService::delete_many(ctx, &mm_txn, remove_ids).await?;
         }
 
-        if let Some(update_files) = &payload.update_files {
-            for (id, name, data) in update_files {
-                media_svc.replace_media(ctx, &mm_txn, &id, post_id, name, data).await?;
-            }
-        }
+        if let Some(add_medias) = &payload.add_medias {
 
-        if let Some(add_files) = &payload.add_files {
-            let next_sort = PostMediaService::<MediaStorageService>::next_sort(ctx, &mm_txn, post_id).await?;
-            for (i, (name, data)) in add_files.iter().enumerate() {
-                media_svc
-                    .upload_and_create(ctx, &mm_txn, post_id, name, data, next_sort + i as i32)
+            let mut metas = Vec::with_capacity(add_medias.len());
+
+            // --- Validate files exist in OSS
+            for media in add_medias {
+
+                let meta = mm.bucket()
+                    .head_object(&media.object_key)
                     .await?;
+
+                match media.media_type {
+                    MediaType::Image if !media.mime_type.starts_with("image/") => {
+                        return Err(Error::validation_failed("Invalid mime type for image"));
+                    }
+                    MediaType::Video if !media.mime_type.starts_with("video/") => {
+                        return Err(Error::validation_failed("Invalid mime type for video"));
+                    }
+                    _ => {}
+                }
+
+                metas.push(meta);
             }
+
+            let next_sort =
+                PostMediaService::next_sort(ctx, &mm_txn, &post_id).await?;
+
+            let post_medias_c: Vec<PostMediaForCreate> =
+                add_medias
+                    .iter()
+                    .zip(metas.iter())
+                    .enumerate()
+                    .map(|(idx, (media, meta))| PostMediaForCreate {
+                        post_id: post_id.to_string(),
+                        object_key: media.object_key.clone(),
+                        media_type: media.media_type.clone(),
+                        mime_type: media.mime_type.clone(),
+                        etag: meta.etag.clone(),
+                        file_size: meta.content_length as i64,
+                        width: media.width,
+                        height: media.height,
+                        duration: media.duration,
+                        sort_order: next_sort + idx as i32,
+                    })
+                    .collect();
+
+            PostMediaBmc::create_many(ctx, &mm_txn, post_medias_c).await?;
         }
+
+        let media_count = PostMediaBmc::count(ctx, &mm_txn, &post_id).await?;
+
+        PostBmc::update(
+            ctx,
+            &mm_txn,
+            &post_id,
+            PostForUpdate {
+                title: payload.title,
+                description: payload.description,
+                status: payload.status,
+                cover_media_key: payload.new_cover_object_key,
+                media_count: media_count as i32,
+            },
+        )
+        .await?;
 
         dbx.commit_txn().await?;
+
+        info!("Post successfully updated!");
+
         Ok(())
     }
 
-    // --- Delete post
-    pub async fn delete(ctx: &Ctx, mm: &ModelManager, id: &str) -> Result<()> {
+    pub async fn delete_post(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        post_id: String
+    ) -> Result<()> {
+
+        info!("Deleting post: {}", post_id);
+
         let mm_txn = mm.new_with_txn()?;
         let dbx = mm_txn.dbx();
         dbx.begin_txn().await?;
 
-        let media_svc = PostMediaService::default();
+        let medias = PostMediaBmc::list_by_post(ctx, &mm_txn, &post_id).await?;
 
-        let medias = media_svc.list_by_post(ctx, &mm_txn, id).await?;
-
-        for media in medias {
-            media_svc.delete_media(ctx, &mm_txn, &media.id).await?;
+        if !medias.is_empty() {
+            let object_keys: Vec<&str> = medias.iter().map(|m| m.object_key.as_str()).collect();
+            mm.bucket().delete_many(&object_keys).await?;
+            let ids: Vec<&str> = medias.iter().map(|m| m.id.as_str()).collect();
+            PostMediaBmc::delete_many(ctx, mm, ids).await?;
         }
 
-        PostBmc::delete(ctx, &mm_txn, id).await?;
+        // -- Delete post
+        PostBmc::delete(ctx, &mm_txn, &post_id).await?;
+
         dbx.commit_txn().await?;
+
+        info!("Successfully deleted the post!");
+
         Ok(())
     }
 
@@ -616,21 +801,57 @@ impl PostService {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct UpdatePostPayload {
     pub title: Option<String>,
     pub description: Option<String>,
-    pub is_published: Option<bool>,
-    pub add_files: Option<Vec<(String, Vec<u8>)>>,
-    pub update_files: Option<Vec<(String, String, Vec<u8>)>>,
+    pub status: PostStatus,
+    
+    pub add_medias: Option<Vec<CreatePostMedia>>,
     pub remove_ids: Option<Vec<String>>,
-    pub new_cover_id: Option<String>,
+    pub new_cover_object_key: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct CreatePostPayload {
     pub title: String,
     pub description: String,
-    pub media: Vec<(String, Vec<u8>)>,
-    pub thumbnail: Option<Vec<u8>>,
+    pub medias: Vec<CreatePostMedia>,
+    pub user_cover_key: Option<String>, // object_key to the media for cover
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreatePostMedia {
+    pub object_key: String,
+    pub file_name: String,
+    pub media_type: MediaType,
+    pub mime_type: String,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub duration: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreatePostCommentPayload {
+    pub post_id: String,
+    pub text: String,
+    pub parent_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SavePostToCollectionPayload {
+    pub post_id: String,
+    pub option: SaveToCollectionOption,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UnsavePostFromCollectionPayload {
+    pub post_id: String,
+    pub collection_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ForwardPostToChatPayload {
+    pub post_id: String,
+    pub chat_id: String,
 }

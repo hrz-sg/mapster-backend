@@ -1,29 +1,39 @@
+// region: --- Modules
+
 use crate::ctx::Ctx;
 use crate::model::ModelManager;
-use crate::model::journey::{Journey, JourneyBmc, JourneyFilter, JourneyForCreate, JourneyForUpdate};
+use crate::model::journey::{Journey, JourneyBmc, JourneyFilter, JourneyForCreate, JourneyForUpdate, JourneyStatus};
 use crate::model::journey_collection::JourneyCollectionBmc;
 use crate::model::journey_collection_item::{JourneyCollectionItemBmc, JourneyCollectionItemFilter};
 use crate::model::journey_forward::{JourneyForwardBmc, JourneyForwardFilter, JourneyForwardForCreate};
 use crate::model::journey_post::{JourneyPost, JourneyPostBmc, JourneyPostFilter, JourneyPostForCreate};
-use crate::model::post::{Post, PostBmc, PostForCreate, PostWithUser};
+use crate::model::post::{Post, PostBmc, PostFilter, PostForCreate, PostWithAuthor};
 use crate::service::error::{Error, Result};
 use crate::service::journey_post::JourneyPostService;
-use modql::filter::{ListOptions, OpValString};
+use modql::filter::{ListOptions, OpValString, OpValsString};
+use serde::Deserialize;
 use std::collections::HashMap;
 use tracing::{info, warn};
+
+// endregion: --- Modules
 
 pub struct JourneyService;
 
 impl JourneyService {
-    /// --- Create journey. Scenario 1:Create journey from existing posts (main way of journey creation)
+    /// --- Create journey. Scenario 1: Create journey from existing posts (main way of journey creation)
     pub async fn create_from_posts(
         ctx: &Ctx,
         mm: &ModelManager,
-        title: &str,
-        description: &str,
-        cover_media_url: Option<&str>,
-        post_ids: Vec<&str>,
+        payload: CreateJourneyWithPostsPayload
     ) -> Result<Journey> {
+
+        let CreateJourneyWithPostsPayload {
+            title,
+            description,
+            cover_object_key,
+            post_ids,
+        } = payload;
+        
         info!(
             "Creating journey from {} selected posts for user: {}",
             post_ids.len(),
@@ -38,41 +48,76 @@ impl JourneyService {
         let dbx = mm_txn.dbx();
         dbx.begin_txn().await?;
 
-        let mut first_post_cover_url = None;
-        for (index, post_id) in post_ids.iter().enumerate() {
-            let post = PostBmc::get(ctx, &mm_txn, post_id).await?;
+        // let mut first_post_cover_object_key: Option<String> = None;
 
-            // -- Check owner
+        let post_filter = vec![PostFilter {
+            id: Some(OpValsString(vec![OpValString::In(post_ids.clone())])),
+            ..Default::default()
+        }];
+
+        let posts = PostBmc::list(ctx, &mm_txn, Some(post_filter), None).await?;
+
+        let found_ids: std::collections::HashSet<_> =
+            posts.iter().map(|p| &p.id).collect();
+
+        let missing_ids: Vec<&str> = post_ids
+            .iter()
+            .filter(|id| !found_ids.contains(id))
+            .map(|s| s.as_str())
+            .collect();
+
+        if !missing_ids.is_empty() {
+            return Err(Error::entity_not_found(
+                "Post",
+                missing_ids.join(", ")
+            ));
+        }
+
+        let journey_post_filter = vec![JourneyPostFilter {
+            post_id: Some(OpValsString(vec![OpValString::In(post_ids.clone())])),
+            ..Default::default()
+        }];
+
+        let existing_journey_posts = JourneyPostBmc::list(ctx, &mm_txn, Some(journey_post_filter), None).await?;
+
+        if !existing_journey_posts.is_empty() {
+            return Err(Error::validation_failed(
+                "One or more posts already belong to a journey"
+            ));
+        }
+
+        let mut first_post_cover_object_key: Option<String> = None;
+
+        let posts_map: std::collections::HashMap<_, _> =
+            posts.into_iter().map(|p| (p.id.clone(), p)).collect();
+
+        for (index, post_id) in post_ids.iter().enumerate() {
+            let post = posts_map.get(post_id).expect("Missing ids already checked");
+
             if post.owner_id != ctx.user_id() {
-                dbx.rollback_txn().await?;
                 return Err(Error::permission_denied(
                     "Cannot include other user's posts in your journey",
                 ));
             }
 
-            // -- Check that post is not in other journey
-            if JourneyPostBmc::find_journey_id_by_post(ctx, &mm_txn, post_id).await?.is_some() {
-                return Err(Error::validation_failed("Post is already in a journey"));
-            }
-
-            // -- Save cover_media_url from first post
-            if index == 0 && cover_media_url.is_none() && post.cover_media_url.is_some() {
-                first_post_cover_url = post.cover_media_url.clone();
+            if index == 0 && cover_object_key.is_none() && !post.cover_media_key.is_empty() {
+                first_post_cover_object_key = Some(post.cover_media_key.clone());
             }
         }
 
-        // -- Define cover: priorities:
-        //    - given cover_media_url
-        //    - cover from first post
-        //    - None
-        let final_cover_url = cover_media_url.map(|s| s.to_string()).or(first_post_cover_url);
+        // Priority:
+        // 1. cover from payload
+        // 2. cover from first post
+        // 3. None
+        let final_cover_object_key =
+            cover_object_key.or(first_post_cover_object_key);
 
         // -- Create journey
         let journey_c = JourneyForCreate {
-            title: title.to_string(),
-            description: description.to_string(),
-            cover_media_url: final_cover_url,
-            is_published: Some(true), // publish by default
+            title,
+            description,
+            cover_object_key: final_cover_object_key,
+            status: JourneyStatus::Published, 
         };
 
         let journey_id = JourneyBmc::create(ctx, &mm_txn, journey_c).await?;
@@ -92,10 +137,10 @@ impl JourneyService {
         dbx.commit_txn().await?;
 
         info!(
-            "Journey created from {} posts successfully: {}",
-            post_ids.len(),
+            "Journey created successfully: {}",
             journey_id
         );
+
         Ok(journey)
     }
 
@@ -107,34 +152,37 @@ impl JourneyService {
     /// Creates journey from current post + new post
     ///
     /// NOTE: both scenarios are used in this method, it depends on frontend
-    pub async fn create_journey_from_existing_and_new_post(
+    pub async fn create_with_new_post(
         ctx: &Ctx,
         mm: &ModelManager,
-        existing_post_id: &str,
-        journey_title: &str,
-        journey_description: &str,
-        journey_cover_url: Option<&str>,
-        new_post_data: PostForCreate, // data for new post
+        payload: CreateJourneyWithNewPostPayload
     ) -> Result<(Journey, Post)> {
+
         info!(
-            "Continuing as journey from post {} for user: {}",
-            existing_post_id,
+            "Continuing as journey from post for user: {}",
             ctx.user_id()
         );
+
+        let CreateJourneyWithNewPostPayload {
+            existing_post_id,
+            title,
+            description,
+            cover_object_key,
+            new_post,
+        } = payload;
 
         let mm_txn = mm.new_with_txn()?;
         let dbx = mm_txn.dbx();
         dbx.begin_txn().await?;
 
-        let existing_post = PostBmc::get(ctx, &mm_txn, existing_post_id).await?;
+        let existing_post = PostBmc::get(ctx, &mm_txn, &existing_post_id).await?;
 
         if existing_post.owner_id != ctx.user_id() {
-            dbx.rollback_txn().await?;
             return Err(Error::permission_denied("Post doesn't belong to you"));
         }
 
         // -- Check if post already exists in journey
-        if JourneyPostBmc::find_journey_id_by_post(ctx, &mm_txn, existing_post_id)
+        if JourneyPostBmc::find_journey_id_by_post(ctx, &mm_txn, &existing_post_id)
             .await?
             .is_some()
         {
@@ -142,20 +190,19 @@ impl JourneyService {
         }
 
         // -- Create new post
-        let new_post_id = PostBmc::create(ctx, &mm_txn, new_post_data).await?;
+        let new_post_id = PostBmc::create(ctx, &mm_txn, new_post).await?;
         let new_post = PostBmc::get(ctx, &mm_txn, &new_post_id).await?;
 
         // -- Define cover
-        let final_cover_url = journey_cover_url
-            .map(|s| s.to_string())
-            .or_else(|| existing_post.cover_media_url.clone())
-            .or_else(|| new_post.cover_media_url.clone());
+        let final_cover_object_key = cover_object_key
+        .or_else(|| (!existing_post.cover_media_key.is_empty()).then(|| existing_post.cover_media_key.clone()))
+        .or_else(|| (!new_post.cover_media_key.is_empty()).then(|| new_post.cover_media_key.clone()));
 
         let journey_c = JourneyForCreate {
-            title: journey_title.to_string(),
-            description: journey_description.to_string(),
-            cover_media_url: final_cover_url,
-            is_published: Some(true), // publish by default
+            title,
+            description,
+            cover_object_key: final_cover_object_key, 
+            status: JourneyStatus::Published, // publish by default
         };
 
         let journey_id = JourneyBmc::create(ctx, &mm_txn, journey_c).await?;
@@ -183,11 +230,22 @@ impl JourneyService {
             "Journey {} created continuing from post {} with new post {}",
             journey_id, existing_post_id, new_post_id
         );
+
         Ok((journey, new_post))
     }
 
     /// --- Detatch post from journey (post remains but is removed from journey)
-    pub async fn detach_post_from_journey(ctx: &Ctx, mm: &ModelManager, journey_id: &str, post_id: &str) -> Result<()> {
+    pub async fn detach_post_from_journey(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        payload: DetachPostPayload,
+    ) -> Result<()> {
+
+        let DetachPostPayload {
+            journey_id,
+            post_id,
+        } = payload;
+        
         info!("Detaching post {} from journey {}", post_id, journey_id);
 
         let mm_txn = mm.new_with_txn()?;
@@ -195,13 +253,13 @@ impl JourneyService {
         dbx.begin_txn().await?;
 
         // -- Check if user is the journey owner
-        let journey = JourneyBmc::get(ctx, &mm_txn, journey_id).await?;
+        let journey = JourneyBmc::get(ctx, &mm_txn, &journey_id).await?;
+
         if journey.owner_id != ctx.user_id() {
-            dbx.rollback_txn().await?;
             return Err(Error::permission_denied("You are not the owner of this journey"));
         }
 
-        let current_posts = JourneyPostService::list_by_journey(ctx, &mm_txn, journey_id).await?;
+        let current_posts = JourneyPostService::list_by_journey(ctx, &mm_txn, &journey_id).await?;
 
         // Check minimum posts length (2)
         if current_posts.len() - 1 < 2 {
@@ -209,55 +267,66 @@ impl JourneyService {
         }
 
         // -- Remove post relation to journey
-        JourneyPostBmc::delete(ctx, &mm_txn, journey_id, post_id).await?;
+        JourneyPostBmc::delete(ctx, &mm_txn, &journey_id, &post_id).await?;
 
         // -- Reorder left posts
-        let remaining_posts = JourneyPostService::list_by_journey(ctx, &mm_txn, journey_id).await?;
+        let remaining_posts = JourneyPostService::list_by_journey(ctx, &mm_txn, &journey_id).await?;
         let new_order: Vec<String> = remaining_posts.into_iter().map(|jp| jp.post_id).collect();
 
-        JourneyPostService::reorder_posts_in_journey(ctx, &mm_txn, journey_id, new_order).await?;
+        JourneyPostService::reorder_posts_in_journey(ctx, &mm_txn, &journey_id, new_order).await?;
 
         dbx.commit_txn().await?;
 
         info!("Post {} detached from journey {}", post_id, journey_id);
+
         Ok(())
     }
 
     /// --- Get signle journey metadata (without posts)
-    pub async fn get(ctx: &Ctx, mm: &ModelManager, journey_id: &str) -> Result<Journey> {
+    pub async fn get(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        journey_id: String
+    ) -> Result<Journey> {
         info!("Getting journey: {}", journey_id);
 
-        let journey = JourneyBmc::get(ctx, mm, journey_id).await?;
+        let journey = JourneyBmc::get(ctx, mm, &journey_id).await?;
 
-        // Check access: if journey is not published, only owner can view it
-        if !journey.is_published && journey.owner_id != ctx.user_id() {
-            return Err(Error::permission_denied(
+        let is_owner = journey.owner_id == ctx.user_id();
+
+        match (is_owner, journey.status.clone()) {
+            // Owner can see everything
+            (true, _) => Ok(journey),
+
+            // Others can see only published
+            (false, JourneyStatus::Published) => Ok(journey),
+
+            // Everything else forbidden
+            _ => Err(Error::permission_denied(
                 "You don't have permission to view this journey",
-            ));
+            )),
         }
-
-        Ok(journey)
     }
 
-    /// --- Get journey with posts
     pub async fn get_with_posts(
         ctx: &Ctx,
         mm: &ModelManager,
-        journey_id: &str,
-    ) -> Result<(Journey, Vec<PostWithUser>)> {
+        journey_id: String,
+    ) -> Result<(Journey, Vec<PostWithAuthor>)> {
+
         info!("Getting journey with posts: {}", journey_id);
 
-        // -- Start transaction
         let mm_txn = mm.new_with_txn()?;
         let dbx = mm_txn.dbx();
         dbx.begin_txn().await?;
 
         // -- Get journey
-        let journey = JourneyBmc::get(ctx, &mm_txn, journey_id).await?;
+        let journey = JourneyBmc::get(ctx, &mm_txn, &journey_id).await?;
 
-        // -- Check access
-        if !journey.is_published && journey.owner_id != ctx.user_id() {
-            dbx.rollback_txn().await?;
+        // -- Access check
+        let is_owner = journey.owner_id == ctx.user_id();
+
+        if !is_owner && journey.status != JourneyStatus::Published {
             return Err(Error::permission_denied(
                 "You don't have permission to view this journey",
             ));
@@ -269,30 +338,29 @@ impl JourneyService {
             ..Default::default()
         }]);
 
-        // -- Get journey posts (already sorted by sort_order)
         let list_options = Some(ListOptions {
             order_bys: Some("sort_order".to_string().into()),
             ..Default::default()
         });
 
-        // -- Get journey posts
-        let journey_posts = JourneyPostBmc::list(ctx, &mm_txn, post_filters, list_options).await?;
+        let journey_posts =
+            JourneyPostBmc::list(ctx, &mm_txn, post_filters, list_options).await?;
 
-        // -- Get post details
-        let posts_with_user_preview = Self::get_posts_details(ctx, &mm_txn, &journey_posts).await?;
+        let posts_with_user_preview =
+            Self::get_posts_details(ctx, &mm_txn, &journey_posts).await?;
 
         dbx.commit_txn().await?;
 
         Ok((journey, posts_with_user_preview))
     }
 
-    /// --- Update journey
     pub async fn update(
         ctx: &Ctx,
         mm: &ModelManager,
-        journey_id: &str,
+        journey_id: String,
         journey_u: JourneyForUpdate,
     ) -> Result<Journey> {
+
         info!("Updating journey: {}", journey_id);
 
         // -- Start transaction
@@ -301,20 +369,19 @@ impl JourneyService {
         dbx.begin_txn().await?;
 
         // -- Check if journey exists and user has permission
-        let existing_journey = JourneyBmc::get(ctx, &mm_txn, journey_id).await?;
+        let existing_journey = JourneyBmc::get(ctx, &mm_txn, &journey_id).await?;
 
         if existing_journey.owner_id != ctx.user_id() {
-            dbx.rollback_txn().await?;
             return Err(Error::permission_denied(
                 "You don't have permission to edit this journey",
             ));
         }
 
         // -- Update journey
-        JourneyBmc::update(ctx, &mm_txn, journey_id, journey_u).await?;
+        JourneyBmc::update(ctx, &mm_txn, &journey_id, journey_u).await?;
 
         // -- Get updated journey
-        let updated_journey = JourneyBmc::get(ctx, &mm_txn, journey_id).await?;
+        let updated_journey = JourneyBmc::get(ctx, &mm_txn, &journey_id).await?;
 
         // -- Commit transaction
         dbx.commit_txn().await?;
@@ -324,7 +391,11 @@ impl JourneyService {
     }
 
     /// --- Delete journey (cascade deletes journey_posts)
-    pub async fn delete(ctx: &Ctx, mm: &ModelManager, journey_id: &str) -> Result<()> {
+    pub async fn delete(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        journey_id: String
+    ) -> Result<()> {
         info!("Deleting journey: {}", journey_id);
 
         // Start transaction
@@ -333,7 +404,7 @@ impl JourneyService {
         dbx.begin_txn().await?;
 
         // Check if journey exists and user has permission
-        let existing_journey = JourneyBmc::get(ctx, &mm_txn, journey_id).await?;
+        let existing_journey = JourneyBmc::get(ctx, &mm_txn, &journey_id).await?;
 
         if existing_journey.owner_id != ctx.user_id() {
             dbx.rollback_txn().await?;
@@ -343,7 +414,7 @@ impl JourneyService {
         }
 
         // Delete journey (cascade will delete all related journey_posts)
-        JourneyBmc::delete(ctx, &mm_txn, journey_id).await?;
+        JourneyBmc::delete(ctx, &mm_txn, &journey_id).await?;
 
         // Commit transaction
         dbx.commit_txn().await?;
@@ -352,39 +423,12 @@ impl JourneyService {
         Ok(())
     }
 
-    pub async fn list_by_user(
-        ctx: &Ctx,
-        mm: &ModelManager,
-        user_id: &str,
-        include_unpublished: bool,
-    ) -> Result<Vec<Journey>> {
-        info!("Listing journeys for user: {}", user_id);
-
-        let mut filters = vec![JourneyFilter {
-            owner_id: Some(user_id.into()),
-            ..Default::default()
-        }];
-
-        // If not requesting unpublished journeys and not viewing own journeys
-        let is_viewing_own_journeys = user_id == ctx.user_id();
-
-        if !include_unpublished && !is_viewing_own_journeys {
-            filters.push(JourneyFilter {
-                is_published: Some(true.into()),
-                ..Default::default()
-            });
-        }
-
-        let list_options = Some(ListOptions {
-            order_bys: Some(vec!["-mtime".to_string()].into()), // Sort by modification time
-            ..Default::default()
-        });
-
-        Self::list(ctx, mm, Some(filters), list_options).await
-    }
-
     /// --- Check if current user saved the journey
-    pub async fn has_current_user_saved(ctx: &Ctx, mm: &ModelManager, journey_id: &str) -> Result<bool> {
+    pub async fn has_current_user_saved(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        journey_id: String
+    ) -> Result<bool> {
         // -- Find user collection
         let collection = match JourneyCollectionBmc::find_default(ctx, mm, ctx.user_id()).await? {
             Some(col) => col,
@@ -392,7 +436,7 @@ impl JourneyService {
         };
 
         // -- Check if journey exists in collection
-        let exists = JourneyCollectionItemBmc::exists_in_collection(ctx, mm, &collection.id, journey_id).await?;
+        let exists = JourneyCollectionItemBmc::exists_in_collection(ctx, mm, &collection.id, &journey_id).await?;
 
         Ok(exists)
     }
@@ -426,7 +470,7 @@ impl JourneyService {
         // Get journeys details
         let filters = vec![JourneyFilter {
             id: Some(journey_ids_opvals.into()), // IN filter
-            is_published: Some(true.into()),     // only published
+            status: Some(JourneyStatus::Published),     // only published
             ..Default::default()
         }];
 
@@ -442,14 +486,22 @@ impl JourneyService {
     }
 
     /// --- Check if current user forwarded the journey
-    pub async fn has_current_user_forwarded(ctx: &Ctx, mm: &ModelManager, journey_id: &str) -> Result<bool> {
-        let is_forwarded = JourneyForwardBmc::exists(ctx, mm, journey_id, ctx.user_id()).await?;
+    pub async fn has_current_user_forwarded(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        journey_id: String
+    ) -> Result<bool> {
+        let is_forwarded = JourneyForwardBmc::exists(ctx, mm, &journey_id, ctx.user_id()).await?;
 
         Ok(is_forwarded)
     }
 
     /// --- Save journey to user's default collection
-    pub async fn save_journey(ctx: &Ctx, mm: &ModelManager, journey_id: &str) -> Result<()> {
+    pub async fn save_journey(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        journey_id: String
+    ) -> Result<()> {
         info!("User {} saving journey: {}", ctx.user_id(), journey_id);
 
         // -- Start transaction
@@ -458,10 +510,12 @@ impl JourneyService {
         dbx.begin_txn().await?;
 
         // -- Check journey exists and accessible
-        let journey = JourneyBmc::get(ctx, &mm_txn, journey_id).await?;
+        let journey = JourneyBmc::get(ctx, &mm_txn, &journey_id).await?;
 
-        // -- Save only published journeys (кроме своих)
-        if !journey.is_published && journey.owner_id != ctx.user_id() {
+        // -- Save only published journeys 
+        let is_owner = journey.owner_id == ctx.user_id();
+
+        if !is_owner && journey.status != JourneyStatus::Published {
             dbx.rollback_txn().await?;
             return Err(Error::permission_denied("Cannot save unpublished journey"));
         }
@@ -470,11 +524,11 @@ impl JourneyService {
         let collection = JourneyCollectionBmc::get_or_create_default(ctx, &mm_txn, ctx.user_id()).await?;
 
         // -- Add journey to collection (ON CONFLICT DO NOTHING)
-        let was_added = JourneyCollectionItemBmc::add_to_collection(ctx, &mm_txn, &collection.id, journey_id).await?;
+        let was_added = JourneyCollectionItemBmc::add_to_collection(ctx, &mm_txn, &collection.id, &journey_id).await?;
 
         // -- Update counter only if actually added (not a duplicate)
         if was_added {
-            JourneyBmc::increment_saved_count(ctx, &mm_txn, journey_id).await?;
+            JourneyBmc::increment_save_count(ctx, &mm_txn, &journey_id).await?;
         }
 
         // -- Commit transaction
@@ -485,7 +539,11 @@ impl JourneyService {
     }
 
     /// --- Remove journey from user's default collection  
-    pub async fn unsave_journey(ctx: &Ctx, mm: &ModelManager, journey_id: &str) -> Result<()> {
+    pub async fn unsave_journey(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        journey_id: String
+    ) -> Result<()> {
         info!("User {} unsaving journey: {}", ctx.user_id(), journey_id);
 
         // -- Start transaction
@@ -494,7 +552,7 @@ impl JourneyService {
         dbx.begin_txn().await?;
 
         // -- Check journey exists
-        JourneyBmc::exists(ctx, &mm_txn, journey_id).await?;
+        JourneyBmc::exists(ctx, &mm_txn, &journey_id).await?;
 
         // -- Find user's default collection
         let collection = match JourneyCollectionBmc::find_default(ctx, &mm_txn, ctx.user_id()).await? {
@@ -506,10 +564,10 @@ impl JourneyService {
         };
 
         // -- Remove journey from collection
-        JourneyCollectionItemBmc::remove_from_collection(ctx, &mm_txn, &collection.id, journey_id).await?;
+        JourneyCollectionItemBmc::remove_from_collection(ctx, &mm_txn, &collection.id, &journey_id).await?;
 
         // -- Decrement save count
-        JourneyBmc::decrement_saved_count(ctx, &mm_txn, journey_id).await?;
+        JourneyBmc::decrement_save_count(ctx, &mm_txn, &journey_id).await?;
 
         dbx.commit_txn().await?;
 
@@ -517,7 +575,7 @@ impl JourneyService {
         Ok(())
     }
 
-    /// --- List journeys with filtering and pagination (only published)
+    /// --- List journeys
     pub async fn list(
         ctx: &Ctx,
         mm: &ModelManager,
@@ -526,23 +584,18 @@ impl JourneyService {
     ) -> Result<Vec<Journey>> {
         info!("Listing journeys with filters");
 
-        let mut final_filters = filters.unwrap_or_default();
-
-        if true {
-            // always show published only
-            final_filters.push(JourneyFilter {
-                is_published: Some(true.into()),
-                ..Default::default()
-            });
-        }
-
-        let journeys = JourneyBmc::list(ctx, mm, Some(final_filters), list_options).await?;
+        let journeys = JourneyBmc::list(ctx, mm, filters, list_options).await?;
 
         Ok(journeys)
     }
 
-    /// --- Forward journey
-    pub async fn forward(ctx: &Ctx, mm: &ModelManager, journey_id: &str, chat_id: &str) -> Result<()> {
+    /// --- Forward journey to chat
+    pub async fn forward(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        journey_id: String, 
+        chat_id: String
+    ) -> Result<()> {
         info!(
             "User {} forwarding journey {} to chat {}",
             ctx.user_id(),
@@ -554,10 +607,10 @@ impl JourneyService {
         let dbx = mm_txn.dbx();
         dbx.begin_txn().await?;
 
-        let journey = JourneyBmc::get(ctx, &mm_txn, journey_id).await?;
+        let journey = JourneyBmc::get(ctx, &mm_txn, &journey_id).await?;
 
-        if !journey.is_published && journey.owner_id != ctx.user_id() {
-            dbx.rollback_txn().await?;
+        let is_owner = journey.owner_id == ctx.user_id();
+        if !is_owner && journey.status != JourneyStatus::Published {
             return Err(Error::permission_denied("Cannot forward unpublished journey"));
         }
 
@@ -571,28 +624,33 @@ impl JourneyService {
         JourneyForwardBmc::create_on_conflict(ctx, &mm_txn, journey_forward_c).await?;
 
         // -- Increment forward count
-        JourneyBmc::increment_forward_count(ctx, &mm_txn, journey_id).await?;
+        JourneyBmc::increment_forward_count(ctx, &mm_txn, &journey_id).await?;
 
         dbx.commit_txn().await?;
 
         info!("Journey {} forwarded successfully", journey_id);
+
         Ok(())
     }
 
     /// --- Unforward journey
-    pub async fn unforward(ctx: &Ctx, mm: &ModelManager, journey_id: &str) -> Result<()> {
+    pub async fn unforward(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        journey_id: String
+    ) -> Result<()> {
         info!("User {} unforwarding journey: {}", ctx.user_id(), journey_id);
 
         let mm_txn = mm.new_with_txn()?;
         let dbx = mm_txn.dbx();
         dbx.begin_txn().await?;
 
-        JourneyBmc::exists(ctx, &mm_txn, journey_id).await?;
+        JourneyBmc::exists(ctx, &mm_txn, &journey_id).await?;
 
-        JourneyForwardBmc::delete(ctx, &mm_txn, journey_id).await?;
+        JourneyForwardBmc::delete(ctx, &mm_txn, &journey_id).await?;
 
         // -- Decrement forward count
-        JourneyBmc::decrement_forward_count(ctx, &mm_txn, journey_id).await?;
+        JourneyBmc::decrement_forward_count(ctx, &mm_txn, &journey_id).await?;
 
         dbx.commit_txn().await?;
 
@@ -600,10 +658,14 @@ impl JourneyService {
         Ok(())
     }
 
-    //// ===== HELPER FUNCTIONS =====
+    // region: --- Helpers
 
     /// --- Count forwards for the journey
-    pub async fn count_forwards(ctx: &Ctx, mm: &ModelManager, journey_id: &str) -> Result<i64> {
+    pub async fn count_forwards(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        journey_id: String
+    ) -> Result<i64> {
         let filter = vec![JourneyForwardFilter {
             journey_id: Some(journey_id.into()),
             ..Default::default()
@@ -614,7 +676,11 @@ impl JourneyService {
     }
 
     /// --- Count saves for the journey
-    pub async fn count_saves(ctx: &Ctx, mm: &ModelManager, journey_id: &str) -> Result<i64> {
+    pub async fn count_saves(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        journey_id: String
+    ) -> Result<i64> {
         // We count ALL collections that contain this trip
         // (not just the default ones)
 
@@ -633,7 +699,7 @@ impl JourneyService {
         ctx: &Ctx,
         mm: &ModelManager,
         journey_posts: &[JourneyPost],
-    ) -> Result<Vec<PostWithUser>> {
+    ) -> Result<Vec<PostWithAuthor>> {
         if journey_posts.is_empty() {
             return Ok(vec![]);
         }
@@ -642,10 +708,10 @@ impl JourneyService {
         let post_ids: Vec<&str> = journey_posts.iter().map(|jp| jp.post_id.as_str()).collect();
 
         // -- Get posts with user info
-        let posts = PostBmc::get_many_with_users(ctx, mm, post_ids).await?;
+        let posts = PostBmc::get_many_with_authors(ctx, mm, post_ids).await?;
 
         // -- Create HashMap for quick lookup
-        let posts_map: HashMap<String, PostWithUser> = posts.into_iter().map(|post| (post.id.clone(), post)).collect();
+        let posts_map: HashMap<String, PostWithAuthor> = posts.into_iter().map(|post| (post.id.clone(), post)).collect();
 
         // Use Vec::with_capacity() for better performance
         let mut ordered_posts = Vec::with_capacity(journey_posts.len());
@@ -665,4 +731,33 @@ impl JourneyService {
 
         Ok(ordered_posts)
     }
+
+    // endregion: --- Helpers
+
 }
+
+// region: --- Payloads
+#[derive(Debug, Deserialize)]
+pub struct CreateJourneyWithPostsPayload {
+    pub title: String,
+    pub description: String,
+    pub cover_object_key: Option<String>,
+    pub post_ids: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateJourneyWithNewPostPayload {
+    pub existing_post_id: String,
+    pub title: String,
+    pub description: String,
+    pub cover_object_key: Option<String>,
+    pub new_post: PostForCreate,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DetachPostPayload {
+    pub journey_id: String,
+    pub post_id: String,
+}
+
+// endregion: --- Payloads

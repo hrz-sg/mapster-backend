@@ -1,32 +1,45 @@
 use crate::ctx::Ctx;
 use crate::model::base::{self, DbBmc};
-use crate::model::post::post_media::PostMedia;
+use crate::model::post::PostMediaForDisplay;
 use crate::model::user::{UserForPreview, UserPublicIden};
 use crate::model::{Error, ModelManager, Result};
 use modql::field::Fields;
-use modql::filter::{FilterNodes, ListOptions, OpValsBool, OpValsInt64, OpValsString};
+use modql::filter::{FilterNodes, ListOptions, OpValsString};
 use sea_query::{Expr, Iden, PostgresQueryBuilder, Query};
 use sea_query_binder::SqlxBinder;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 // region: ---- Post Types
+#[derive(Clone, Debug, sqlx::Type, derive_more::Display, Deserialize, Serialize, PartialEq)]
+#[sqlx(type_name = "post_status")]
+pub enum PostStatus {
+    Draft,
+    Published,
+}
+
+// Covert custom PostStatus into sea_query::Value
+impl From<PostStatus> for sea_query::Value {
+    fn from(val: PostStatus) -> Self {
+        val.to_string().into()
+    }
+}
 
 #[derive(Debug, Clone, Fields, FromRow, Serialize)]
 pub struct Post {
     pub id: String,
     pub owner_id: String,
+    pub location_id: Option<String>, // TODO: need to be mandatory 
     pub title: String,
     pub description: String,
-    pub is_published: bool,
-    pub cover_media_url: Option<String>,
-    pub thumbnail_url: Option<String>,
+    #[field(cast_as = "post_status")]
+    pub status: PostStatus,
+    pub cover_media_key: String,
     pub media_count: i32,
     pub like_count: i64,
     pub comment_count: i64,
     pub save_count: i64,
     pub forward_count: i64,
-    pub has_video: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -34,10 +47,18 @@ pub struct PostFeedItem {
     pub id: String,
     pub title: String,
     pub author: UserForPreview,
-    pub thumbnail_url: Option<String>,
-    pub media_count: i32,
-    pub has_video: bool,
+    pub cover_url: String,
     pub like_count: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PostProfileItem {
+    pub id: String,
+    pub title: String,
+    pub author: UserForPreview,
+    pub cover_url: String,
+    pub like_count: i64,
+    pub status: PostStatus,
 }
 
 #[derive(Debug, Serialize)]
@@ -46,29 +67,28 @@ pub struct PostDetail {
     pub title: String,
     pub description: String,
     pub author: UserForPreview,
-    pub thumbnail_url: Option<String>,
-    pub medias: Vec<PostMedia>,
+    pub cover_url: String,
+    pub medias: Vec<PostMediaForDisplay>,
     pub stats: PostStats,
 }
 
-#[derive(Fields, Deserialize)]
+#[derive(Fields, Deserialize, Debug)]
 pub struct PostForCreate {
     pub title: String,
     pub description: String,
-    pub is_published: Option<bool>,
-    pub cover_media_url: Option<String>,
-    pub thumbnail_url: Option<String>,
-    pub media_count: Option<i32>,
-    pub has_video: Option<bool>,
+    #[field(cast_as = "post_status")]
+    pub status: PostStatus,
+    pub cover_media_key: String,
 }
 
-#[derive(Fields, Default, Deserialize)]
+#[derive(Fields, Deserialize)]
 pub struct PostForUpdate {
     pub title: Option<String>,
     pub description: Option<String>,
-    pub is_published: Option<bool>,
-    pub media_count: Option<i32>,
-    pub has_video: Option<bool>,
+    #[field(cast_as = "post_status")]
+    pub status: PostStatus,
+    pub media_count: i32,
+    pub cover_media_key: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -77,6 +97,8 @@ pub struct PostStats {
     pub comment_count: i64,
     pub save_count: i64,
     pub forward_count: i64,
+
+    // current user stat state
     pub user_liked: bool,
     pub user_saved: bool,
     pub user_forwarded: bool,
@@ -84,83 +106,54 @@ pub struct PostStats {
 
 #[derive(FilterNodes, Deserialize, Default, Debug)]
 pub struct PostFilter {
-    id: Option<OpValsString>,
-    owner_id: Option<OpValsString>,
-    title: Option<OpValsString>,
-    is_published: Option<OpValsBool>,
-    has_video: Option<OpValsBool>,
-    media_count: Option<OpValsInt64>,
-}
-
-impl PostFilter {
-    pub fn by_user(owner_id: &str) -> Self {
-        Self {
-            owner_id: Some(owner_id.into()),
-            id: None,
-            title: None,
-            is_published: None,
-            has_video: None,
-            media_count: None,
-        }
-    }
+    pub(crate) id: Option<OpValsString>,
+    pub(crate) owner_id: Option<OpValsString>,
+    pub(crate) title: Option<OpValsString>,
+    #[modql(cast_as = "post_status")]
+    pub status: Option<Vec<PostStatus>>,
 }
 
 #[derive(Debug, Clone, FromRow, Serialize)]
-pub struct PostWithUser {
+pub struct PostWithAuthor {
     // Post
     pub id: String,
     pub title: String,
-    pub thumbnail_url: Option<String>,
+    pub cover_media_key: Option<String>,
     pub media_count: i32,
-    pub has_video: bool,
     pub like_count: i64,
     pub comment_count: i64,
     pub save_count: i64,
 
     // User
-    pub user_id: String,
-    pub username: String,
-    pub avatar_url: Option<String>,
+    #[sqlx(flatten)]
+    pub author: UserForPreview,
 }
-// endregion: ---- Post Types
 
-// region: ---- PostIden
 #[derive(Iden)]
 pub enum PostIden {
     #[iden = "post"]
     Table,
-    #[iden = "id"]
     Id,
-    #[iden = "user_id"]
-    UserId,
-    #[iden = "title"]
+    OwnerId,      
+    LocationId,
     Title,
-    #[iden = "description"]
     Description,
-    #[iden = "cover_media_url"]
-    CoverMediaUrl,
-    #[iden = "media_count"]
+    Status,           
+    CoverMediaKey,
     MediaCount,
-    #[iden = "like_count"]
     LikeCount,
-    #[iden = "forward_count"]
-    ForwardCount,
-    #[iden = "save_count"]
-    SaveCount,
-    #[iden = "comment_count"]
     CommentCount,
+    SaveCount,
+    ForwardCount,
 }
 
-// endregion: ---- PostIden
-
-// region: ---- CounterType enum
 pub enum CounterType {
     LikeCount,
     SaveCount,
     ForwardCount,
     CommentCount,
 }
-// endregion: ---- CounterType enum
+// endregion: ---- Post Types
 
 // region: ---- PostBmc
 pub struct PostBmc;
@@ -192,7 +185,7 @@ impl PostBmc {
     }
 
     /// --- Get multiple posts by ids
-    pub async fn get_many_with_users(_ctx: &Ctx, mm: &ModelManager, ids: Vec<&str>) -> Result<Vec<PostWithUser>> {
+    pub async fn get_many_with_authors(_ctx: &Ctx, mm: &ModelManager, ids: Vec<&str>) -> Result<Vec<PostWithAuthor>> {
         if ids.is_empty() {
             return Ok(vec![]);
         }
@@ -203,20 +196,24 @@ impl PostBmc {
             .columns([
                 (PostIden::Table, PostIden::Id),
                 (PostIden::Table, PostIden::Title),
+                (PostIden::Table, PostIden::CoverMediaKey),
                 (PostIden::Table, PostIden::MediaCount),
-                (PostIden::Table, PostIden::UserId),
+                (PostIden::Table, PostIden::LikeCount),
+                (PostIden::Table, PostIden::CommentCount),
+                (PostIden::Table, PostIden::SaveCount),
+                (PostIden::Table, PostIden::OwnerId),
             ])
             .expr(Expr::col((UserPublicIden::Table, UserPublicIden::Username)))
-            .expr(Expr::col((UserPublicIden::Table, UserPublicIden::AvatarUrl)))
+            .expr(Expr::col((UserPublicIden::Table, UserPublicIden::AvatarObjectKey)))
             .from(PostIden::Table)
             .inner_join(
                 UserPublicIden::Table,
-                Expr::col((PostIden::Table, PostIden::UserId)).equals((UserPublicIden::Table, UserPublicIden::Id)),
+                Expr::col((PostIden::Table, PostIden::OwnerId)).equals((UserPublicIden::Table, UserPublicIden::Id)),
             )
             .and_where(Expr::col((Self::TABLE, PostIden::Id)).is_in(ids.iter().copied()));
 
         let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
-        let sqlx_query = sqlx::query_as_with::<_, PostWithUser, _>(&sql, values);
+        let sqlx_query = sqlx::query_as_with::<_, PostWithAuthor, _>(&sql, values);
         let posts = mm.dbx().fetch_all(sqlx_query).await?;
 
         Ok(posts)
@@ -349,6 +346,12 @@ mod tests {
     use serde_json::json;
     use serial_test::serial;
 
+    #[test]
+    fn test_post_status_display() {
+        assert_eq!(PostStatus::Draft.to_string(), "Draft");
+        assert_eq!(PostStatus::Published.to_string(), "Published");
+    }
+
     #[serial]
     #[tokio::test]
     async fn test_create_ok() -> Result<()> {
@@ -357,25 +360,16 @@ mod tests {
         let ctx = Ctx::root_ctx();
         let fx_title: &'static str = "test_create_ok title";
         let fx_description: &'static str = "test_create_ok description";
-        let fx_is_published: Option<bool> = Some(true);
-        let fx_cover_media_url: Option<String> = Some(String::from(
+        let fx_cover_media_key: String = String::from(
             "https://plus.unsplash.com/premium_photo-1759484628323-142ec8547fb9?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=774",
-        ));
-        let fx_thumbnail_url: Option<String> = Some(String::from(
-            "https://plus.unsplash.com/premium_photo-1759484628323-142ec8547fb9?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=774",
-        ));
-        let fx_media_count: Option<i32> = Some(1);
-        let fx_has_video: Option<bool> = Some(false);
+        );
 
         // -- Exec
         let post_c = PostForCreate {
             title: fx_title.to_string(),
             description: fx_description.to_string(),
-            is_published: fx_is_published,
-            cover_media_url: fx_cover_media_url,
-            thumbnail_url: fx_thumbnail_url,
-            media_count: fx_media_count,
-            has_video: fx_has_video,
+            status: PostStatus::Published,
+            cover_media_key: fx_cover_media_key,
         };
 
         let id = PostBmc::create(&ctx, &mm, post_c).await?;
@@ -523,7 +517,9 @@ mod tests {
             PostForUpdate {
                 title: Some(fx_title_new.to_string()),
                 description: Some(fx_description_new.to_string()),
-                ..Default::default()
+                status: PostStatus::Published,
+                media_count: 1,
+                cover_media_key: None,
             },
         )
         .await?;
@@ -555,5 +551,6 @@ mod tests {
 
         Ok(())
     }
+
 }
 // endregion: ---- Test

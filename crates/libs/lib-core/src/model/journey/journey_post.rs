@@ -26,7 +26,13 @@ pub struct JourneyPostForCreate {
 
 #[derive(Fields, Default, Deserialize)]
 pub struct JourneyPostForUpdate {
+    pub post_id: String,
     pub sort_order: i32,
+}
+
+#[derive(Fields, Default, Deserialize)]
+pub struct AddPostToJourney {
+    pub post_id: String,
 }
 
 #[derive(FilterNodes, Deserialize, Default, Debug)]
@@ -40,10 +46,14 @@ pub struct JourneyPostFilter {
 // region: ---- JourneyPostIden
 #[derive(Iden, Clone)]
 pub enum JourneyPostIden {
+    #[iden = "journey_post"]
+    Table,
     #[iden = "journey_id"]
     JourneyId,
     #[iden = "post_id"]
     PostId,
+    #[iden = "sort_order"]
+    SortOrder,
 }
 // endregion: ---- JourneyPostIden
 
@@ -55,6 +65,10 @@ impl DbBmc for JourneyPostBmc {
 
     fn has_id() -> bool {
         false
+    }
+
+    fn timestamp_fields() -> base::TimestampType {
+        base::TimestampType::CtimeMtime
     }
 }
 
@@ -128,14 +142,40 @@ impl JourneyPostBmc {
         base::list::<Self, _, _>(ctx, mm, filters, list_options).await
     }
 
+    pub async fn update_post_position(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        journey_id: &str,
+        post_u: JourneyPostForUpdate,
+    ) -> Result<()> {
+
+        let JourneyPostForUpdate {
+            post_id,
+            sort_order,
+        } = post_u;
+
+        let mut query = Query::update();
+        query
+            .table(JourneyPostIden::Table)
+            .value(JourneyPostIden::SortOrder, sort_order)
+            .and_where(Expr::col(JourneyPostIden::JourneyId).eq(journey_id))
+            .and_where(Expr::col(JourneyPostIden::PostId).eq(post_id));
+
+        let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
+        let sqlx_query = sqlx::query_with(&sql, values);
+        mm.dbx().execute(sqlx_query).await?;
+        
+        Ok(())
+    }
+
     // --- Update sort order for journey post
     pub async fn update(
         ctx: &Ctx,
         mm: &ModelManager,
         journey_id: &str,
-        post_id: &str,
         journey_post_u: JourneyPostForUpdate,
     ) -> Result<()> {
+        let post_id = journey_post_u.post_id.clone();
         // -- Extract fields (as in base::create)
         let mut fields = journey_post_u.not_none_sea_fields();
         prep_fields_for_update::<Self>(&mut fields, ctx.user_id());
@@ -147,7 +187,7 @@ impl JourneyPostBmc {
             .table(Self::table_ref())
             .values(fields)
             .and_where(Expr::col(JourneyPostIden::JourneyId).eq(journey_id))
-            .and_where(Expr::col(JourneyPostIden::PostId).eq(post_id));
+            .and_where(Expr::col(JourneyPostIden::PostId).eq(post_id.clone()));
 
         // -- Exec query
         let (sql, values) = query.build_sqlx(PostgresQueryBuilder);

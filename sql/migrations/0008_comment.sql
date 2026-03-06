@@ -22,7 +22,7 @@ CREATE TABLE comment_media (
     comment_id VARCHAR(25) NOT NULL REFERENCES comment(id) ON DELETE CASCADE,
     owner_id VARCHAR(25) NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
     media_url TEXT NOT NULL,
-    media_type VARCHAR(16) NOT NULL CHECK (media_type = 'image'),
+    media_type VARCHAR(16) NOT NULL CHECK (media_type = 'Image'),
     mime_type VARCHAR(128) NOT NULL,
     width INT,
     height INT,

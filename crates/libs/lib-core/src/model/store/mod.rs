@@ -1,10 +1,12 @@
 // region: ---- Modules
 
 pub mod dbx;
+pub mod oss;
 
 use crate::config::core_config;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{Pool, Postgres};
+use oss::Bucket;
 
 // endregion: ---- Modules
 
@@ -17,6 +19,12 @@ pub async fn new_db_pool() -> sqlx::Result<Db> {
         .max_connections(max_connections)
         .connect(&core_config().DB_URL)
         .await
+}
+
+pub fn new_oss_bucket() -> Bucket {
+    let config = core_config();
+
+    Bucket::new(config.OSS_BUCKET_NAME.clone(), config.OSS_PUBLIC_BASE.clone())
 }
 
 // NOTE 1) This is not an ideal situation; however, with sqlx 0.7.1, when executing `cargo test`, some tests that use sqlx fail at a

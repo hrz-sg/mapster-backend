@@ -7,10 +7,10 @@ resolver = "2"
 members = [
     # -- App Libraries
     "crates/libs/lib-utils", # e.g., base64, time
+    "crates/libs/lib-rpc", # e.g., pwd, token
     "crates/libs/lib-auth", # e.g., pwd, token
     "crates/libs/lib-core", # e.g., model, ctx, config
     "crates/libs/lib-tmail", # e.g., email verification, etc..
-    "crates/libs/lib-storage", # e.g.,cloud media
 
     # -- App Services
     "crates/services/web-server",

@@ -1,8 +1,11 @@
 // region: ---- Modules
+
 use crate::ctx::Ctx;
 use crate::model::ModelManager;
 use crate::model::base::{self, DbBmc, prep_fields_for_update};
 use crate::model::modql_utils::time_to_sea_value;
+use crate::model::post::PostProfileItem;
+use crate::model::user::UserProfileStats;
 use crate::model::{Error, Result};
 use chrono::{DateTime, Utc};
 use modql::field::{Fields, HasSeaFields, SeaField, SeaFields};
@@ -13,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use sqlx::postgres::PgRow;
 use uuid::Uuid;
+
 // endregion: ---- Modules
 
 // region:    --- User Types
@@ -37,23 +41,36 @@ pub struct User {
     pub email: String,
     pub typ: UserTyp,
     pub email_verified: bool,
-    pub avatar_url: Option<String>,
+    #[serde(rename = "avatar_url")]
+    pub avatar_object_key: Option<String>,
 }
 
-#[derive(Clone, Fields, FromRow, Debug, Serialize)]
+#[derive(Clone, Fields, FromRow, Debug, Serialize, Deserialize)]
 pub struct UserForPreview {
     pub id: String,
     pub username: String,
-    pub avatar_url: Option<String>,
+    #[serde(rename = "avatar_url")]
+    pub avatar_object_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Fields, FromRow, Serialize)]
 pub struct UserProfileDetails {
     pub id: String,
     pub username: String,
-    pub avatar_url: Option<String>,
+    #[serde(rename = "avatar_url")]
+    pub avatar_object_key: String,
     pub bio: Option<String>,
     pub location: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UserProfile {
+    pub user: UserProfileDetails,
+    pub stats: UserProfileStats,
+    pub posts: Vec<PostProfileItem>,
+
+    pub is_my_profile: bool,
+    pub is_following: bool,
 }
 
 #[derive(Deserialize)]
@@ -115,8 +132,8 @@ pub(in crate::model) enum UserPublicIden {
     Id,
     #[iden = "username"]
     Username,
-    #[iden = "avatar_url"]
-    AvatarUrl,
+    #[iden = "avatar_object_key"]
+    AvatarObjectKey,
 }
 
 // Note: Since the entity properties Iden will be given by modql
@@ -188,7 +205,7 @@ impl UserBmc {
             .from(Self::table_ref())
             .expr_as(Expr::col(UserPublicIden::Id), "id")
             .expr_as(Expr::col(UserPublicIden::Username), "username")
-            .expr_as(Expr::col(UserPublicIden::AvatarUrl), "avatar_url")
+            .expr_as(Expr::col(UserPublicIden::AvatarObjectKey), "avatar_object_key")
             .and_where(Expr::col(UserPublicIden::Id).eq(id));
 
         let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
@@ -203,7 +220,7 @@ impl UserBmc {
             .from(Self::table_ref())
             .expr_as(Expr::col(UserPublicIden::Id), "id")
             .expr_as(Expr::col(UserPublicIden::Username), "username")
-            .expr_as(Expr::col(UserPublicIden::AvatarUrl), "avatar_url")
+            .expr_as(Expr::col(UserPublicIden::AvatarObjectKey), "avatar_object_key")
             .expr_as(Expr::col(UserIden::Bio), "bio")
             .expr_as(Expr::col(UserIden::Location), "location")
             .and_where(Expr::col(UserPublicIden::Id).eq(id));
@@ -412,7 +429,7 @@ impl UserBmc {
             .from(Self::table_ref())
             .expr_as(Expr::col(UserPublicIden::Id), "id")
             .expr_as(Expr::col(UserPublicIden::Username), "username")
-            .expr_as(Expr::col(UserPublicIden::AvatarUrl), "avatar_url")
+            .expr_as(Expr::col(UserPublicIden::AvatarObjectKey), "avatar_object_key")
             .and_where(Expr::col(UserPublicIden::Id).is_in(ids.iter().cloned().collect::<Vec<_>>()));
 
         // -- Exec query

@@ -6,7 +6,9 @@ use crate::{
         user::{User, UserBmc},
     },
 };
+use lib_auth::pwd::{self, ContentToHash};
 use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
+use uuid::Uuid;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -84,7 +86,16 @@ pub async fn init_dev_db() -> Result<(), Box<dyn std::error::Error>> {
     let demo0_user: User = UserBmc::first_by_username(&ctx, &mm, "demo0")
         .await?
         .expect("demo0 user must exist in dev seed");
-    UserBmc::update_pwd_hash(&ctx, &mm, &demo0_user.id, DEMO_PWD.to_string()).await?;
+
+    let salt = Uuid::new_v4();
+
+    let pwd = pwd::hash_pwd(ContentToHash {
+        content: DEMO_PWD.to_string(),
+        salt,
+    })
+    .await?;
+
+    UserBmc::update_pwd_hash(&ctx, &mm, &demo0_user.id, pwd).await?;
 
     let titles = ["title_1", "title_2", "title_3"];
     let descriptions = ["description_1", "description_2", "description_3"];

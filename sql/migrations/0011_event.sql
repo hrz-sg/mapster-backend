@@ -17,8 +17,8 @@ CREATE TABLE event (
 CREATE TABLE event_participant (
     event_id VARCHAR(25) NOT NULL REFERENCES event(id) ON DELETE CASCADE,
     user_id VARCHAR(25) NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
-    role VARCHAR(25) NOT NULL DEFAULT 'participant',
-    status VARCHAR(25) NOT NULL DEFAULT 'invited', -- 'invited', 'accepted', 'declined'
+    role VARCHAR(25) NOT NULL DEFAULT 'Participant',
+    status VARCHAR(25) NOT NULL DEFAULT 'Invited', -- 'invited', 'accepted', 'declined'
 
     -- Timestamps
     invited_at TIMESTAMPTZ NOT NULL DEFAULT now(),

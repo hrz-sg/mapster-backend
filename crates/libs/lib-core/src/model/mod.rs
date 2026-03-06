@@ -26,6 +26,8 @@ pub use journey::journey_post;
 pub mod chat;
 
 pub use self::error::{Error, Result};
+use crate::model::store::new_oss_bucket;
+use crate::model::store::oss::Bucket;
 use crate::model::store::{dbx::Dbx, new_db_pool};
 
 // endregion: ---- Modules
@@ -33,6 +35,7 @@ use crate::model::store::{dbx::Dbx, new_db_pool};
 #[derive(Clone)]
 pub struct ModelManager {
     dbx: Dbx,
+    bucket: Bucket,
 }
 
 // Constructor
@@ -44,16 +47,24 @@ impl ModelManager {
 
         let dbx = Dbx::new(db_pool, false)?;
 
-        Ok(ModelManager { dbx })
+        let bucket = new_oss_bucket();
+
+        Ok(ModelManager { dbx, bucket })
     }
 
     pub fn new_with_txn(&self) -> Result<ModelManager> {
         let dbx = Dbx::new(self.dbx.db().clone(), true)?;
 
-        Ok(ModelManager { dbx })
+        let bucket = self.bucket.clone();
+
+        Ok(ModelManager { dbx, bucket })
     }
 
     pub fn dbx(&self) -> &Dbx {
         &self.dbx
+    }
+
+    pub fn bucket(&self) -> &Bucket {
+        &self.bucket
     }
 }

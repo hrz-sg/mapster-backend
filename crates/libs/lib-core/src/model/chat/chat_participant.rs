@@ -28,8 +28,8 @@ pub struct ChatParticipantForUpdate {
 
 #[derive(FilterNodes, Deserialize, Default, Debug)]
 pub struct ChatParticipantFilter {
-    pub(crate) chat_id: Option<String>,
-    pub(crate) user_id: Option<String>,
+    pub chat_id: Option<String>,
+    pub user_id: Option<String>,
 }
 // endregion: ---- ChatParticipant Types
 

@@ -4,8 +4,8 @@ CREATE TABLE journey (
     owner_id VARCHAR(25) NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
     title VARCHAR(256) NOT NULL,
     description TEXT,
-    cover_media_url TEXT,
-    is_published BOOLEAN NOT NULL DEFAULT FALSE,
+    cover_object_key TEXT,
+    status journey_status NOT NULL DEFAULT 'Draft',
 
     -- Stats (cache)
     total_likes BIGINT NOT NULL DEFAULT 0, -- the sum of all likes from posts in journey
@@ -20,7 +20,7 @@ CREATE TABLE journey (
 );
 
 CREATE INDEX idx_journey_owner ON journey(owner_id); -- user journeys
-CREATE INDEX idx_journey_feed ON journey (ctime DESC) WHERE is_published = true; -- journeys for feed
+CREATE INDEX idx_journey_feed ON journey (ctime DESC) WHERE status = 'Published'; -- journeys feed
 
 CREATE TABLE journey_post (
     journey_id VARCHAR(25) NOT NULL REFERENCES journey(id) ON DELETE CASCADE,

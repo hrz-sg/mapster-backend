@@ -1,5 +1,5 @@
 use derive_more::From;
-use lib_core::model;
+use lib_core::{model, service};
 
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -8,6 +8,10 @@ pub enum Error {
     // -- Modules
     #[from]
     Model(model::Error),
+
+    // -- Modules
+    #[from]
+    Service(service::Error),
 }
 
 // region:    --- Error Boilerplate

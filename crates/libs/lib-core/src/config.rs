@@ -17,6 +17,10 @@ pub struct CoreConfig {
 
     // -- Web
     pub WEB_FOLDER: String,
+
+    // -- OSS
+    pub OSS_BUCKET_NAME: String,
+    pub OSS_PUBLIC_BASE: String,
 }
 
 impl CoreConfig {
@@ -27,6 +31,10 @@ impl CoreConfig {
 
             // -- Web
             WEB_FOLDER: get_env("SERVICE_WEB_FOLDER")?,
+
+            // -- OSS
+            OSS_BUCKET_NAME: get_env("OSS_BUCKET_NAME")?,
+            OSS_PUBLIC_BASE: get_env("OSS_PUBLIC_BASE")?,
         })
     }
 }

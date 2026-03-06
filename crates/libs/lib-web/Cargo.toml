@@ -8,7 +8,7 @@ edition = "2024"
 lib-utils = { path = "../../libs/lib-utils"}
 lib-auth = { path = "../../libs/lib-auth"}
 lib-core = { path = "../../libs/lib-core"}
-lib-storage = { path = "../../libs/lib-storage"}
+lib-rpc = { path = "../../libs/lib-rpc"}
 
 # -- Async
 tokio = { version = "1", features = ["full"] }
@@ -30,3 +30,5 @@ time = { workspace = true }
 uuid = {version = "1", features = ["v4","fast-rng",]}
 derive_more = { workspace = true }
 strum_macros = "0.27.2"
+base64 = "0.21"
+chrono = "0.4"

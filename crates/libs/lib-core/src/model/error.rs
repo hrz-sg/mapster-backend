@@ -1,8 +1,7 @@
-use crate::model::store::dbx;
+use crate::model::store::{dbx, oss};
 use derive_more::From;
 use lib_auth::pwd;
-use lib_storage::oss;
-use lib_utils::{file, media};
+use lib_utils::file;
 use serde::Serialize;
 use serde_with::{DisplayFromStr, serde_as};
 use sqlx::error::DatabaseError;
@@ -63,10 +62,10 @@ pub enum Error {
     SeaQuery(#[serde_as(as = "DisplayFromStr")] sea_query::error::Error),
 
     #[from]
-    ModqlIntoSea(#[serde_as(as = "DisplayFromStr")] modql::filter::IntoSeaError),
+    Oss(oss::Error),
 
     #[from]
-    Oss(oss::Error),
+    ModqlIntoSea(#[serde_as(as = "DisplayFromStr")] modql::filter::IntoSeaError),
 }
 
 impl Error {
@@ -117,12 +116,6 @@ impl std::error::Error for Error {}
 // region: ---- Froms
 impl From<file::Error> for Error {
     fn from(err: file::Error) -> Self {
-        Self::ValidationFail(err.to_string())
-    }
-}
-
-impl From<media::Error> for Error {
-    fn from(err: media::Error) -> Self {
         Self::ValidationFail(err.to_string())
     }
 }

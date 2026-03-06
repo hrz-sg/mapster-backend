@@ -1,10 +1,9 @@
 mod chat;
 pub mod journey;
 pub mod journey_post;
-mod media_storage;
 pub mod post;
+pub mod upload_media;
 mod post_media;
-mod thumbnail;
 pub mod user;
 pub mod user_follow;
 pub mod user_profile;

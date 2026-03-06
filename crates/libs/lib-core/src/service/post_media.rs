@@ -1,110 +1,55 @@
+use modql::filter::{OpValString, OpValsString};
+
 use crate::ctx::Ctx;
-use crate::model::post::post_media::{PostMedia, PostMediaBmc, PostMediaForCreate, PostMediaForUpdate};
+use crate::model::post::PostMediaFilter;
+use crate::model::post::post_media::PostMediaBmc;
 use crate::model::{ModelManager, Result};
-use crate::service::media_storage::{MediaStorageService, Storage};
-use lib_utils::file::validate_file;
 
-pub struct PostMediaService<S: Storage> {
-    storage: S,
-}
+pub struct PostMediaService;
 
-impl Default for PostMediaService<MediaStorageService> {
-    fn default() -> Self {
-        Self::new(MediaStorageService::new())
-    }
-}
-
-impl<S: Storage> PostMediaService<S> {
-    pub fn new(storage: S) -> Self {
-        Self { storage }
-    }
-
-    pub async fn upload_and_create(
-        &self,
-        ctx: &Ctx,
-        mm: &ModelManager,
-        post_id: &str,
-        filename: &str,
-        data: &[u8],
-        sort_order: i32,
-    ) -> Result<String> {
-        let (mime, media_type) = validate_file(filename, data)?;
-
-        let media_url = self.storage.upload(filename, data, &mime).await?;
-
-        PostMediaBmc::create(
-            ctx,
-            mm,
-            PostMediaForCreate {
-                post_id: post_id.to_string(),
-                media_url,
-                media_type,
-                mime_type: mime,
-                width: None,
-                height: None,
-                file_size: Some(data.len() as i64),
-                duration: None,
-                sort_order,
-            },
-        )
-        .await
-    }
-
-    pub async fn replace_media(
-        &self,
-        ctx: &Ctx,
-        mm: &ModelManager,
-        media_id: &str,
-        post_id: &str,
-        filename: &str,
-        data: &[u8],
+impl PostMediaService {
+    pub async fn delete_many(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        ids: &[String]
     ) -> Result<()> {
-        let old = PostMediaBmc::get(ctx, mm, media_id).await?;
-        if old.post_id != post_id {
-            tracing::warn!("skip updating media id={} (belongs to another post)", media_id);
-            return Ok(());
+
+        let id_filter = OpValsString(ids.iter().map(|id| OpValString::Eq(id.clone())).collect());
+        let filter = PostMediaFilter {
+            id: Some(id_filter),
+            ..Default::default()
+        };
+
+        let medias = PostMediaBmc::list(ctx, mm, Some(vec![filter]), None).await?;
+        let object_keys: Vec<&str> = medias.iter().map(|m| m.object_key.as_str()).collect();
+
+        if !object_keys.is_empty() {
+            mm.bucket().delete_many(&object_keys).await?;
         }
 
-        // -- Delete old file
-        self.storage.delete_by_url(&old.media_url).await?;
+        let ids: Vec<&str> = medias.iter().map(|m| m.id.as_str()).collect();
+        PostMediaBmc::delete_many(ctx, mm, ids).await?;
 
-        // -- Update new file
-        let (mime, media_type) = validate_file(filename, data)?;
-        let media_url = self.storage.upload(filename, data, &mime).await?;
-
-        PostMediaBmc::update(
-            ctx,
-            mm,
-            media_id,
-            PostMediaForUpdate {
-                media_url: Some(media_url),
-                mime_type: Some(mime),
-                media_type: Some(media_type),
-                file_size: Some(data.len() as i64),
-                ..Default::default()
-            },
-        )
-        .await
-    }
-
-    pub async fn delete_many(&self, ctx: &Ctx, mm: &ModelManager, ids: &[String]) -> Result<()> {
-        for id in ids {
-            self.delete_media(ctx, mm, &id).await?;
-        }
         Ok(())
     }
 
-    pub async fn delete_media(&self, ctx: &Ctx, mm: &ModelManager, media_id: &str) -> Result<()> {
-        let media = PostMediaBmc::get(ctx, mm, media_id).await?;
-        self.storage.delete_by_url(&media.media_url).await?;
-        PostMediaBmc::delete(ctx, mm, media_id).await
+    pub async fn delete_one(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        media_id: String
+    ) -> Result<()> {
+        let media = PostMediaBmc::get(ctx, mm, &media_id).await?;
+
+        mm.bucket().delete(&media.object_key).await?;
+
+        PostMediaBmc::delete(ctx, mm, &media_id).await
     }
 
-    pub async fn list_by_post(&self, ctx: &Ctx, mm: &ModelManager, post_id: &str) -> Result<Vec<PostMedia>> {
-        PostMediaBmc::list_by_post(ctx, mm, post_id).await
-    }
-
-    pub async fn next_sort(ctx: &Ctx, mm: &ModelManager, post_id: &str) -> Result<i32> {
+    pub async fn next_sort(
+        ctx: &Ctx, 
+        mm: &ModelManager, 
+        post_id: &str
+    ) -> Result<i32> {
         let medias = PostMediaBmc::list_by_post(ctx, mm, post_id).await?;
         Ok(medias.iter().map(|m| m.sort_order).max().unwrap_or(-1) + 1)
     }
