@@ -2,6 +2,7 @@ use crate::ctx::Ctx;
 use crate::model::base::{self, DbBmc, TimestampType};
 use crate::model::{ModelManager, Result};
 use modql::field::Fields;
+use modql::filter::{FilterNodes, ListOptions};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
@@ -26,7 +27,7 @@ pub struct ChatMessage {
     pub id: String,
     pub chat_id: String,
     pub user_id: String,
-
+    #[field(cast_as = "message_type")]
     pub message_type: MessageType,
 
     pub text: Option<String>,
@@ -43,11 +44,18 @@ pub struct ChatMessage {
 #[derive(Fields, Deserialize)]
 pub struct ChatMessageForCreate {
     pub chat_id: String,
+    #[field(cast_as = "message_type")]
     pub message_type: MessageType,
     pub text: Option<String>,
     pub post_id: Option<String>,
     pub journey_id: Option<String>,
     pub reply_to_id: Option<String>,
+}
+
+#[derive(FilterNodes, Deserialize, Default, Debug)]
+pub struct ChatMessageFilter {
+    pub chat_id: Option<String>,
+    pub user_id: Option<String>,
 }
 
 // endregion: ---- ChatMessage Types
@@ -74,6 +82,15 @@ impl ChatMessageBmc {
 
     pub async fn get(ctx: &Ctx, mm: &ModelManager, id: &str) -> Result<ChatMessage> {
         base::get::<Self, _>(ctx, mm, id).await
+    }
+
+    pub async fn list(
+        ctx: &Ctx,
+        mm: &ModelManager,
+        filter: Option<Vec<ChatMessageFilter>>,
+        list_options: Option<ListOptions>,
+    ) -> Result<Vec<ChatMessage>> {
+        base::list::<Self, _, _>(ctx, mm, filter, list_options).await
     }
 }
 // endregion: ---- ChatMessageBmc

@@ -23,6 +23,7 @@ impl From<ChatType> for sea_query::Value {
 #[derive(Debug, Clone, Fields, FromRow, Serialize)]
 pub struct Chat {
     pub id: String,
+    #[field(cast_as = "chat_type")]
     pub chat_type: ChatType,
     pub title: Option<String>,
     pub owner_id: Option<String>,
@@ -31,9 +32,11 @@ pub struct Chat {
 
 #[derive(Fields, Deserialize)]
 pub struct ChatForCreate {
+    #[field(cast_as = "chat_type")]
     pub chat_type: ChatType,
     pub title: Option<String>,
 }
+
 // endregion: ---- Chat Types
 
 // region: ---- ChatBmc

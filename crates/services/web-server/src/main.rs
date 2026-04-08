@@ -10,8 +10,9 @@ use lib_web::handlers::handlers_rpc::RpcState;
 use lib_web::handlers::mw_req_stamp::mw_req_stamp_resolver;
 use lib_web::middleware::mw_auth::{mw_ctx_require, mw_ctx_resolver};
 use std::net::SocketAddr;
+use std::sync::Arc;
 // use lib_web::middleware::mw_res_map::mw_reponse_map;
-use crate::web::{routes_auth, routes_rpc};
+use crate::web::{routes_auth, routes_rpc, routes_ws};
 use axum::{Router, middleware};
 use lib_core::_dev_utils;
 use lib_core::model::ModelManager;
@@ -19,7 +20,6 @@ use lib_web::routes::routes_static;
 use tokio::net::TcpListener;
 use tower_cookies::CookieManagerLayer;
 use tracing_subscriber::EnvFilter;
-
 // endregion:   --- Modules
 
 #[tokio::main]
@@ -39,16 +39,23 @@ async fn main() -> Result<()> {
 
     // Initialize ModelManager
     let mm = ModelManager::new().await?;
-    
+
+        // Create RpcRouter once
+    let rpc_router = Arc::new(routes_rpc::create_rpc_router());
+
     // -- Define Routes
 	let rpc_state = RpcState { mm: mm.clone() };
-	let routes_rpc = routes_rpc::routes(rpc_state)
+	let routes_rpc = routes_rpc::routes(rpc_state, rpc_router.clone())
 		.route_layer(middleware::from_fn(mw_ctx_require));
+
+    let routes_ws = routes_ws::routes(mm.clone(), rpc_router)
+        .route_layer(middleware::from_fn(mw_ctx_require));
 
     // -- Define Routes
     let routes_all = Router::new()
         .merge(routes_auth::routes(mm.clone()))
         .nest("/api", routes_rpc)
+        .nest("/ws", routes_ws)
         // .layer(middleware::map_response(mw_reponse_map))
         .layer(middleware::from_fn_with_state(mm.clone(), mw_ctx_resolver))
         .layer(CookieManagerLayer::new())

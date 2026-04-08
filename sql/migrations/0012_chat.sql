@@ -1,3 +1,9 @@
+-- CREATE TABLE chat_session (
+--     id VARCHAR(25) PRIMARY KEY NOT NULL,
+--     user_id VARCHAR(25) NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+--     logged_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+
 CREATE TABLE chat(
     id VARCHAR(25) PRIMARY KEY,
     chat_type chat_type NOT NULL,
@@ -13,7 +19,7 @@ CREATE TABLE chat(
 ALTER TABLE event ADD COLUMN chat_id VARCHAR(25) REFERENCES chat(id) ON DELETE SET NULL;
 
 -- Chat Participant
-CREATE TABLE chat_participant(
+CREATE TABLE chat_member(
     chat_id VARCHAR(25) NOT NULL REFERENCES chat(id) ON DELETE CASCADE,
     user_id VARCHAR(25) NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
     joined_at TIMESTAMPTZ DEFAULT now(),
@@ -24,7 +30,7 @@ CREATE TABLE chat_participant(
 CREATE TABLE chat_message (
     id VARCHAR(25) PRIMARY KEY,
     chat_id VARCHAR(25) NOT NULL REFERENCES chat(id) ON DELETE CASCADE,
-    owner_id VARCHAR(25) NOT NULL REFERENCES "user"(id) ON DELETE CASCADE, -- sender_id
+    owner_id VARCHAR(25) NOT NULL REFERENCES "user"(id), -- sender_id
 
     message_type message_type NOT NULL,
 
@@ -37,7 +43,7 @@ CREATE TABLE chat_message (
 
     ctime TIMESTAMPTZ DEFAULT now(),
     mtime TIMESTAMPTZ,
-    dtime TIMESTAMPTZ,
+    -- dtime TIMESTAMPTZ,
 
     CHECK (
         (message_type = 'Text' AND text IS NOT NULL) OR

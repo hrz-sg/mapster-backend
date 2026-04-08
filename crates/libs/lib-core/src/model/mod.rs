@@ -29,6 +29,7 @@ pub use self::error::{Error, Result};
 use crate::model::store::new_oss_bucket;
 use crate::model::store::oss::Bucket;
 use crate::model::store::{dbx::Dbx, new_db_pool};
+use crate::ws::Ws;
 
 // endregion: ---- Modules
 
@@ -36,6 +37,7 @@ use crate::model::store::{dbx::Dbx, new_db_pool};
 pub struct ModelManager {
     dbx: Dbx,
     bucket: Bucket,
+    ws: Ws,
 }
 
 // Constructor
@@ -49,7 +51,9 @@ impl ModelManager {
 
         let bucket = new_oss_bucket();
 
-        Ok(ModelManager { dbx, bucket })
+        let ws = Ws::new();
+
+        Ok(ModelManager { dbx, bucket, ws })
     }
 
     pub fn new_with_txn(&self) -> Result<ModelManager> {
@@ -57,7 +61,9 @@ impl ModelManager {
 
         let bucket = self.bucket.clone();
 
-        Ok(ModelManager { dbx, bucket })
+        let ws = self.ws.clone();
+
+        Ok(ModelManager { dbx, bucket, ws })
     }
 
     pub fn dbx(&self) -> &Dbx {
@@ -66,5 +72,9 @@ impl ModelManager {
 
     pub fn bucket(&self) -> &Bucket {
         &self.bucket
+    }
+
+    pub fn ws(&self) -> &Ws {
+        &self.ws
     }
 }

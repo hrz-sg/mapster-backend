@@ -30,6 +30,7 @@ uuid = {version = "1", features = ["v4","fast-rng", "serde"]}
 time = { workspace = true }
 chrono = { workspace = true}
 derive_more = { workspace = true }
+axum = { workspace = true }
 base64-url = "3.0.0"
 strum_macros = "0.27.2"
 futures = "0.3"

@@ -33,17 +33,19 @@ impl PostMediaService {
         Ok(())
     }
 
-    pub async fn delete_one(
-        ctx: &Ctx, 
-        mm: &ModelManager, 
-        media_id: String
-    ) -> Result<()> {
-        let media = PostMediaBmc::get(ctx, mm, &media_id).await?;
+    // pub async fn delete_one(
+    //     ctx: &Ctx, 
+    //     mm: &ModelManager, 
+    //     media_id: String
+    // ) -> Result<()> {
+    //     let media = PostMediaBmc::get(ctx, mm, &media_id).await?;
 
-        mm.bucket().delete(&media.object_key).await?;
+    //     mm.bucket().delete(&media.object_key).await?;
 
-        PostMediaBmc::delete(ctx, mm, &media_id).await
-    }
+    //     PostMediaBmc::delete(ctx, mm, &media_id).await?;
+
+    //     Ok(())
+    // }
 
     pub async fn next_sort(
         ctx: &Ctx, 

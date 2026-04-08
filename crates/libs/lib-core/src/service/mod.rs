@@ -1,4 +1,4 @@
-mod chat;
+pub mod chat;
 pub mod journey;
 pub mod journey_post;
 pub mod post;

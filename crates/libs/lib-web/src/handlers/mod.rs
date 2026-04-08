@@ -8,3 +8,6 @@ pub mod mw_req_stamp;
 
 // --- Rpc
 pub mod handlers_rpc;
+
+// --- WebSocket
+pub mod handlers_ws;

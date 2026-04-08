@@ -51,6 +51,9 @@ pub enum Error {
     // -- ModelManager
     CantCreateModelManagerProvider(String),
 
+    // -- Ws
+    Ws(String),
+
     // -- Modules
     #[from]
     Pwd(pwd::Error),
