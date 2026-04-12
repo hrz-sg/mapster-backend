@@ -1,11 +1,16 @@
+// region: --- Imports
+
 use crate::ctx::Ctx;
 use crate::model::base::{self, DbBmc};
 use crate::model::{ModelManager, Result};
 use modql::field::Fields;
-use modql::filter::{FilterNodes, ListOptions};
-use sea_query::Iden;
+use modql::filter::{FilterNodes, ListOptions, OpValsInt64, OpValsString};
+use sea_query::{Expr, Func, Iden, PostgresQueryBuilder, Query};
+use sea_query_binder::SqlxBinder;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
+
+// endregion: --- Imports
 
 // region: ---- ChatMember Types
 #[derive(Debug, Clone, Fields, FromRow, Serialize)]
@@ -22,15 +27,17 @@ pub struct ChatMemberForCreate {
     pub user_id: String,
 }
 
-#[derive(Fields, Deserialize)]
+#[derive(Fields, Deserialize, Default)]
 pub struct ChatMemberForUpdate {
     pub left_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub last_read_seq: Option<i64>
 }
 
 #[derive(FilterNodes, Deserialize, Default, Debug)]
 pub struct ChatMemberFilter {
-    pub chat_id: Option<String>,
-    pub user_id: Option<String>,
+    pub chat_id: Option<OpValsString>,
+    pub user_id: Option<OpValsString>,
+    pub last_read_seq: Option<OpValsInt64>,
 }
 
 #[derive(Iden, Clone)]
@@ -43,6 +50,8 @@ pub enum ChatMemberIden {
     JoinedAt,
     #[iden = "left_at"]
     LeftAt,
+    #[iden = "last_read_seq"]
+    LastReadSeq
 }
 // endregion: ---- ChatMember Types
 
@@ -80,6 +89,32 @@ impl ChatMemberBmc {
         data: ChatMemberForUpdate,
     ) -> Result<u64> {
         base::update_by_filter::<Self, _, _>(ctx, mm, filter, data).await
+    }
+
+    pub async fn update_seq(
+        ctx: &Ctx,
+        mm: &ModelManager,
+        chat_id: &str,
+        seq: i64,
+    ) -> Result<()> {
+        let mut query = Query::update();
+
+        query
+            .table(Self::table_ref())
+            .value(
+                ChatMemberIden::LastReadSeq,
+                Func::cust("GREATEST")
+                    .arg(Expr::col(ChatMemberIden::LastReadSeq))
+                    .arg(Expr::val(seq)),
+            )
+            .and_where(Expr::col(ChatMemberIden::ChatId).eq(chat_id))
+            .and_where(Expr::col(ChatMemberIden::UserId).eq(ctx.user_id()));
+
+        let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
+        let sqlx_query = sqlx::query_with(&sql, values);
+        mm.dbx().execute(sqlx_query).await?;
+
+        Ok(())
     }
 
     pub async fn exists(ctx: &Ctx, mm: &ModelManager, filter: ChatMemberFilter) -> Result<bool> {

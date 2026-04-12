@@ -31,7 +31,7 @@ async fn main() -> Result<()> {
 					"chat_type": "Group",
 					"title": "Test",
 					"members": [
-                        "usr_demo0", "usr_s-HX5PoKliFmPSJM4uVJa"
+                        "usr_demo0", "usr_8Fp19DUwi-lv-5VntHOPb"
                     ]
 				}
 			}

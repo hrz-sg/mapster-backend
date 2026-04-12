@@ -1,3 +1,5 @@
+// region: --- Imports
+
 use crate::ctx::Ctx;
 use crate::model::base::{self, DbBmc, prep_fields_for_create, prep_fields_for_update};
 use crate::model::{Error, ModelManager, Result};
@@ -7,6 +9,8 @@ use sea_query::{Expr, Iden, OnConflict, PostgresQueryBuilder, Query};
 use sea_query_binder::SqlxBinder;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
+
+// endregion: --- Imports
 
 // region: ---- JourneyPost Types
 
@@ -41,9 +45,6 @@ pub struct JourneyPostFilter {
     pub post_id: Option<OpValsString>,
 }
 
-// endregion: ---- JourneyPost Types
-
-// region: ---- JourneyPostIden
 #[derive(Iden, Clone)]
 pub enum JourneyPostIden {
     #[iden = "journey_post"]
@@ -55,7 +56,8 @@ pub enum JourneyPostIden {
     #[iden = "sort_order"]
     SortOrder,
 }
-// endregion: ---- JourneyPostIden
+
+// endregion: ---- JourneyPost Types
 
 // region: ---- JourneyPostBmc
 pub struct JourneyPostBmc;

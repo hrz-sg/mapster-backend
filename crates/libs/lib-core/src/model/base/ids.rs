@@ -33,6 +33,10 @@ pub fn generate_journey_id() -> String {
     format!("jny_{}", _generate_nanoid())
 }
 
+pub fn generate_chat_id() -> String {
+    format!("cht_{}", _generate_nanoid())
+}
+
 pub fn generate_post_media_id() -> String {
     format!("pme_{}", _generate_nanoid())
 }
@@ -79,6 +83,7 @@ pub fn generate_id_for_table(table: &str) -> String {
         "post" => generate_post_id(),
         "comment" => generate_comment_id(),
         "journey" => generate_journey_id(),
+        "chat" => generate_chat_id(),
         "post_media" => generate_post_media_id(),
         "comment_media" => generate_comment_media_id(),
         "post_collection" => generate_collection_id(),
@@ -97,6 +102,7 @@ fn extract_prefix_from_table_name(table: &str) -> String {
         ("posts", "pst"),
         ("comments", "cmt"),
         ("journeys", "jny"),
+        ("chat", "cht"),
         ("post_media", "pme"),
         ("comment_media", "cme"),
         ("post_collections", "col"),
@@ -115,6 +121,7 @@ pub fn validate_id_for_table(id: &str, table: &str) -> Result<()> {
         "post" => "pst_",
         "comment" => "cmt_",
         "journey" => "jny_",
+        "chat" => "cht_",
         "post_media" => "pme_",
         "comment_media" => "cme_",
         "post_collection" => "col_",

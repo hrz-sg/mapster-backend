@@ -1,9 +1,15 @@
+// region: --- Imports
+
 use crate::ctx::Ctx;
 use crate::model::base::{self, DbBmc, TimestampType};
-use crate::model::{ModelManager, Result};
+use crate::model::{Error, ModelManager, Result};
 use modql::field::Fields;
+use modql::filter::FilterNodes;
+use sea_query::Iden;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
+
+// endregion: --- Imports
 
 // region: ---- Chat Types
 #[derive(Clone, Debug, sqlx::Type, derive_more::Display, Deserialize, Serialize)]
@@ -35,6 +41,23 @@ pub struct ChatForCreate {
     #[field(cast_as = "chat_type")]
     pub chat_type: ChatType,
     pub title: Option<String>,
+    pub direct_key: Option<String>
+}
+
+#[derive(FilterNodes, Deserialize, Default, Debug)]
+pub struct ChatFilter {
+    pub id: Option<String>,
+    pub chat_type: Option<ChatType>,
+    pub title: Option<String>,
+    pub owner_id: Option<String>,
+    pub event_id: Option<String>,
+    pub direct_key: Option<String>,
+}
+
+#[derive(Iden, Clone)]
+pub enum ChatIden {
+    #[iden = "direct_key"]
+    DirectKey,
 }
 
 // endregion: ---- Chat Types
@@ -55,16 +78,41 @@ impl DbBmc for ChatBmc {
 }
 
 impl ChatBmc {
-    pub async fn create(ctx: &Ctx, mm: &ModelManager, comment_c: ChatForCreate) -> Result<String> {
-        base::create::<Self, _>(ctx, mm, comment_c).await
+    pub async fn create(ctx: &Ctx, mm: &ModelManager, chat_c: ChatForCreate) -> Result<String> {
+        base::create::<Self, _>(ctx, mm, chat_c).await
     }
 
-    pub async fn get(ctx: &Ctx, mm: &ModelManager, comment_id: &str) -> Result<Chat> {
-        base::get::<Self, _>(ctx, mm, comment_id).await
+    pub async fn create_on_conflict(ctx: &Ctx, mm: &ModelManager, chat_c: ChatForCreate) -> Result<bool> {
+        let conflict_columns = &[ChatIden::DirectKey];
+        
+        base::create_on_conflict::<Self, _, _>(
+            ctx,
+            mm,
+            chat_c,
+            conflict_columns,
+        ).await
+    }
+    
+    pub async fn get(ctx: &Ctx, mm: &ModelManager, chat_id: &str) -> Result<Chat> {
+        base::get::<Self, _>(ctx, mm, chat_id).await
     }
 
-    pub async fn delete(ctx: &Ctx, mm: &ModelManager, comment_id: &str) -> Result<()> {
-        base::delete::<Self>(ctx, mm, comment_id).await
+    pub async fn find_by_direct_key(ctx: &Ctx, mm: &ModelManager, key: &str) -> Result<Chat> {
+        let filter = vec![ChatFilter {
+            direct_key: Some(key.to_string()),
+            ..Default::default()
+        }];
+
+        base::first_by_composite_key::<Self, Chat, _>(ctx, mm, Some(filter))
+            .await?
+            .ok_or_else(|| Error::EntityNotFound {
+                    entity: Self::TABLE,
+                    id: format!("{key}"),
+                })
+    }
+
+    pub async fn delete(ctx: &Ctx, mm: &ModelManager, chat_id: &str) -> Result<()> {
+        base::delete::<Self>(ctx, mm, chat_id).await
     }
 }
 // endregion: ---- ChatBmc

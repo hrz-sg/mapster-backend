@@ -1,10 +1,15 @@
+// region: --- Imports
+
 use crate::ctx::Ctx;
 use crate::model::base::{self, DbBmc, TimestampType};
 use crate::model::{ModelManager, Result};
+use crate::model::modql_utils::time_to_sea_value;
 use modql::field::Fields;
-use modql::filter::{FilterNodes, ListOptions};
+use modql::filter::{FilterNodes, ListOptions, OpValsInt64, OpValsString, OpValsValue};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
+
+// endregion: --- Imports
 
 // region: ---- ChatMessage Types
 #[derive(Clone, Debug, sqlx::Type, derive_more::Display, Deserialize, Serialize)]
@@ -52,10 +57,20 @@ pub struct ChatMessageForCreate {
     pub reply_to_id: Option<String>,
 }
 
+#[derive(Fields, Deserialize, Default)]
+pub struct ChatMessageForUpdate {
+    pub text: Option<String>,
+    pub mtime: Option<chrono::DateTime<chrono::Utc>>,
+    pub dtime: Option<chrono::DateTime<chrono::Utc>>,
+}
+
 #[derive(FilterNodes, Deserialize, Default, Debug)]
 pub struct ChatMessageFilter {
-    pub chat_id: Option<String>,
-    pub user_id: Option<String>,
+    pub chat_id: Option<OpValsString>,
+    pub user_id: Option<OpValsString>,
+    pub seq: Option<OpValsInt64>,
+    #[modql(to_sea_value_fn = "time_to_sea_value")]
+    pub dtime: Option<OpValsValue>
 }
 
 // endregion: ---- ChatMessage Types
@@ -82,6 +97,10 @@ impl ChatMessageBmc {
 
     pub async fn get(ctx: &Ctx, mm: &ModelManager, id: &str) -> Result<ChatMessage> {
         base::get::<Self, _>(ctx, mm, id).await
+    }
+
+    pub async fn update(ctx: &Ctx, mm: &ModelManager, comment_id: &str, message_u: ChatMessageForUpdate) -> Result<()> {
+        base::update::<Self, _>(ctx, mm, comment_id, message_u).await
     }
 
     pub async fn list(

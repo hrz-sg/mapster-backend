@@ -1,4 +1,4 @@
-// region: --- Modules
+// region: --- Imports
 use crate::ctx::Ctx;
 use crate::model::ModelManager;
 use crate::model::user::{UserBmc, UserForAuth, UserForCreate, UserForInsert, UserForLogin, UserStatsBmc};
@@ -10,7 +10,7 @@ use lib_tmail::email::emails_sender::{send_reset_pwd_email, send_verification_em
 use lib_tmail::tmail_config;
 use tracing::debug;
 use uuid::Uuid;
-// endregion: --- Modules
+// endregion: --- Imports
 
 // region: --- User Response structs
 pub struct UserRefreshTokenResponse {
