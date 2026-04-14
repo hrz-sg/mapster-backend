@@ -1,3 +1,5 @@
+// region: --- Imports
+
 use crate::model::Result;
 use crate::model::base::DbBmc;
 use crate::model::user::{UserBmc, UserForPreview, UserPublicIden};
@@ -5,6 +7,9 @@ use crate::{ctx::Ctx, model::ModelManager};
 use sea_query::{Condition, Expr, Iden, PostgresQueryBuilder, Query};
 use sea_query_binder::SqlxBinder;
 
+// endregion: --- Imports
+
+// region: --- UserFollowBmc
 pub struct UserFollowBmc;
 
 #[derive(Iden)]
@@ -161,6 +166,9 @@ impl UserFollowBmc {
         Ok(result)
     }
 }
+// endregion: --- UserFollowBmc
+
+// region: --- Tests
 
 #[cfg(test)]
 mod tests {
@@ -282,3 +290,4 @@ mod tests {
         Ok(())
     }
 }
+// endregion: --- Tests

@@ -1,3 +1,5 @@
+// region: ---- Imports
+
 use crate::ctx::Ctx;
 use crate::model::base::{self, DbBmc, TimestampType};
 use crate::model::{Error, ModelManager, Result};
@@ -7,6 +9,7 @@ use sea_query::{Expr, Iden, PostgresQueryBuilder, Query};
 use sea_query_binder::SqlxBinder;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
+// endregion: ---- Imports
 
 // region: ---- PostForward Types
 #[derive(Debug, Clone, Fields, FromRow, Serialize)]
@@ -27,9 +30,7 @@ pub struct PostForwardFilter {
     pub post_id: Option<OpValsString>,
     pub user_id: Option<OpValsString>,
 }
-// endregion: ---- PostForward Types
 
-// region: ---- PostForwardIden
 #[derive(Iden, Clone)]
 pub enum PostForwardIden {
     Table,
@@ -38,7 +39,7 @@ pub enum PostForwardIden {
     ChatId,
     Ctime,
 }
-// endregion: ---- PostForwardIden
+// endregion: ---- PostForward Types
 
 // region: ---- PostForwardBmc
 pub struct PostForwardBmc;

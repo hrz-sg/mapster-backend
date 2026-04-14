@@ -6,6 +6,7 @@ CREATE TYPE user_typ AS ENUM ('Sys', 'User');
 CREATE TYPE comment_entity_type AS ENUM ('Post');
 CREATE TYPE event_status AS ENUM ('Planning', 'Active', 'Completed', 'Cancelled');
 CREATE TYPE chat_type AS ENUM ('Group', 'Direct');
+CREATE TYPE chat_member_role AS ENUM ('Member', 'Admin');
 CREATE TYPE message_type AS ENUM ('Text', 'Post', 'Journey');
 CREATE TYPE post_status AS ENUM ( 'Draft', 'Published');
 CREATE TYPE journey_status AS ENUM ( 'Draft', 'Published');

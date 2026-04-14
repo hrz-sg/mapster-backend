@@ -1,12 +1,15 @@
 // region: --- Imports
 
+use std::collections::HashSet;
+
+use modql::field::Fields;
 use modql::filter::{ListOptions, OpValInt64, OpValValue, OpValsInt64, OpValsValue};
 use serde::Deserialize;
 
 use crate::ctx::Ctx;
 use crate::model::ModelManager;
 use crate::model::chat::{
-    ChatBmc, ChatForCreate, ChatMember, ChatMemberBmc, ChatMemberFilter, ChatMemberForCreate, ChatMemberForUpdate, ChatMessage, ChatMessageBmc, ChatMessageFilter, ChatMessageForCreate, ChatMessageForUpdate, ChatType, MessageType
+    ChatBmc, ChatForCreate, ChatMember, ChatMemberBmc, ChatMemberFilter, ChatMemberForCreate, ChatMemberForUpdate, ChatMessage, ChatMessageBmc, ChatMessageFilter, ChatMessageForCreate, ChatMessageForUpdate, ChatRole, ChatType, MessageType
 };
 use crate::service::error::{Error, Result};
 use crate::utils::generate_direct_chat_key;
@@ -26,31 +29,55 @@ impl ChatService {
             members,
         } = payload;
 
-        let mut members = members;
-        members.push(ctx.user_id().to_string());
+        let creator_id = ctx.user_id().to_string();
+        
+        // -- deduplicate + include creator
+        let mut members_set: HashSet<String> = members.into_iter().collect();
+        members_set.insert(creator_id.clone());
+
+        // -- limit
+        const MAX_GROUP_SIZE: usize = 100;
+        if members_set.len() > MAX_GROUP_SIZE {
+            return Err(Error::PermissionDenied("Group size limit exceeded".into()));
+        }
 
         // -- Create chat
         let chat_id = ChatBmc::create(
             ctx, 
             mm, 
             ChatForCreate {
-                chat_type: ChatType::Direct,
+                chat_type: ChatType::Group,
                 title,
                 direct_key: None,
             }
         ).await?;
 
-        // -- Add members
-        for user_id in members {
+        // -- Add creator as ADMIN
+        ChatMemberBmc::create(
+            ctx,
+            mm,
+            ChatMemberForCreate {
+                chat_id: chat_id.clone(),
+                user_id: creator_id.clone(),
+                role: ChatRole::Admin,
+            },
+        ).await?;
+
+        // -- Add others as MEMBER
+        for user_id in members_set {
+            if user_id == creator_id {
+                continue;
+            }
+
             ChatMemberBmc::create(
                 ctx,
                 mm,
                 ChatMemberForCreate {
                     chat_id: chat_id.clone(),
                     user_id,
+                    role: ChatRole::Member,
                 },
-            )
-            .await?;
+            ).await?;
         }
 
         Ok(chat_id)
@@ -84,8 +111,9 @@ impl ChatService {
             ctx, 
             mm,
         ChatMemberForCreate {
-            chat_id: chat.id.clone(),
-            user_id: ctx_user_id.to_owned(),
+                chat_id: chat.id.clone(),
+                user_id: ctx_user_id.to_owned(),
+                role: ChatRole::Member,
             }
         ).await?;
 
@@ -95,6 +123,7 @@ impl ChatService {
             ChatMemberForCreate {
                 chat_id: chat.id.clone(),
                 user_id: other_user_id.to_owned(),
+                role: ChatRole::Member,
             }
         ).await?;
 
@@ -163,9 +192,14 @@ impl ChatService {
     pub async fn add_member(
         ctx: &Ctx, 
         mm: &ModelManager, 
-        chat_id: String, 
-        user_id: String
+        payload: AddMemberPayload,
     ) -> Result<()> {
+
+        let AddMemberPayload {
+            chat_id,
+            user_id,
+        } = payload;
+
         // -- Check if member already in the chat
         let exists = ChatMemberBmc::exists(
             ctx,
@@ -216,6 +250,7 @@ impl ChatService {
                 ChatMemberForCreate {
                     chat_id: chat_id.into(),
                     user_id: user_id.into(),
+                    role: ChatRole::Member
                 },
             )
             .await?;
@@ -228,9 +263,14 @@ impl ChatService {
     pub async fn remove_member(
         ctx: &Ctx, 
         mm: &ModelManager, 
-        chat_id: String, 
-        user_id: String
+        payload: RemoveMemberPayload,
     ) -> Result<u64> {
+
+        let RemoveMemberPayload {
+            chat_id,
+            user_id,
+        } = payload;
+
         // -- Update left_at
         let result = ChatMemberBmc::update_by_filter(
             ctx,
@@ -250,30 +290,29 @@ impl ChatService {
         Ok(result)
     }
 
-    pub async fn get_messages(
+    pub async fn list_messages(
         ctx: &Ctx, 
         mm: &ModelManager, 
-        chat_id: String,
-        before_seq: Option<i64>,
-        limit: i64,
+        filters: Option<Vec<ChatMessageFilter>>,
+        list_options: Option<ListOptions>,
     ) -> Result<Vec<ChatMessage>> {
         
-        let messages_filter = Some(vec![ChatMessageFilter {
-            chat_id: Some(chat_id.into()),
-            seq: before_seq.map(|s| OpValsInt64(vec![OpValInt64::Lt(s)])),
-            dtime: Some(OpValsValue(vec![
-                OpValValue::Null(true)
-            ])),
-            ..Default::default()
-        }]);
+        // let messages_filter = Some(vec![ChatMessageFilter {
+        //     chat_id: Some(chat_id.into()),
+        //     seq: before_seq.map(|s| OpValsInt64(vec![OpValInt64::Lt(s)])),
+        //     dtime: Some(OpValsValue(vec![
+        //         OpValValue::Null(true)
+        //     ])),
+        //     ..Default::default()
+        // }]);
 
-        let list_options = Some(ListOptions {
-            limit: Some(limit),
-            order_bys: Some("-seq".into()),
-            ..Default::default()
-        });
+        // let list_options = Some(ListOptions {
+        //     limit: Some(30), // CAN BE CHANGED
+        //     order_bys: Some("-seq".into()),
+        //     ..Default::default()
+        // });
 
-        let mut messages = ChatMessageBmc::list(ctx, mm, messages_filter, list_options).await?;
+        let mut messages = ChatMessageBmc::list(ctx, mm, filters, list_options).await?;
 
         messages.reverse();
 
@@ -284,8 +323,12 @@ impl ChatService {
         ctx: &Ctx, 
         mm: &ModelManager, 
         chat_id: String,
-        seq: i64,
+        payload: MarkAsReadPayload,
     ) -> Result<()> {
+
+        let MarkAsReadPayload {
+            seq,
+        } = payload;
 
         ChatMemberBmc::update_seq(
             ctx,
@@ -297,16 +340,14 @@ impl ChatService {
         Ok(())
     }
 
-    pub async fn get_members(
+    pub async fn list_members(
         ctx: &Ctx, 
         mm: &ModelManager, 
         chat_id: String,
-        seq: i64,
     ) -> Result<Vec<ChatMember>> {
         
         let filter = Some(vec![ChatMemberFilter {
             chat_id: Some(chat_id.into()),
-            last_read_seq: Some(OpValsInt64(vec![OpValInt64::Gte(seq)])),
             ..Default::default()
         }]);
 
@@ -347,8 +388,12 @@ impl ChatService {
         ctx: &Ctx, 
         mm: &ModelManager, 
         message_id: String,
-        text: String,
+        edit_message_p: EditMessagePayload,
     ) -> Result<ChatMessage> {
+
+        let EditMessagePayload {
+            text,
+        } = edit_message_p;
 
         // -- Get msg
         let message = ChatMessageBmc::get(ctx, mm, &message_id).await?;
@@ -364,7 +409,7 @@ impl ChatService {
             mm,
             &message_id,
             ChatMessageForUpdate {
-                text: Some(text),
+                text,
                 mtime: Some(chrono::Utc::now()),
                 ..Default::default()
             },
@@ -434,6 +479,29 @@ pub struct CreateChatPayload {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct AddMemberPayload {
+    pub chat_id: String,
+    pub user_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RemoveMemberPayload {
+    pub chat_id: String,
+    pub user_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GetMessagesPayload {
+    pub chat_id: String,
+    pub before_seq: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct EditMessagePayload {
+    pub text: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct SendMessagePayload {
     pub chat_id: String,
     pub message_type: MessageType,
@@ -441,4 +509,9 @@ pub struct SendMessagePayload {
     pub post_id: Option<String>,
     pub journey_id: Option<String>,
     pub reply_to_id: Option<String>,
+}
+
+#[derive(Fields, Default, Deserialize)]
+pub struct MarkAsReadPayload {
+    pub seq: i64,
 }

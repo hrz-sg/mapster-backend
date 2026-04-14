@@ -1,3 +1,5 @@
+// region: ---- Imports
+
 use crate::ctx::Ctx;
 use crate::model::base::{self, DbBmc, TimestampType};
 use crate::model::{Error, ModelManager, Result};
@@ -7,7 +9,9 @@ use sea_query::Iden;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
-// region: ---- Types
+// endregion: ---- Imports
+
+// region: ---- PostCollection Types
 #[derive(Debug, Clone, Fields, FromRow, Serialize)]
 pub struct PostCollectionItem {
     pub id: String,
@@ -28,15 +32,13 @@ pub struct PostCollectionItemFilter {
     pub collection_id: Option<OpValsString>,
     pub post_id: Option<OpValsString>,
 }
-// endregion: ---- Types
 
-// region: ---- Iden
 #[derive(Iden, Clone)]
 pub enum PostCollectionItemIden {
     CollectionId,
     PostId,
 }
-// endregion: ---- Iden
+// endregion: ---- PostCollection Types
 
 // region: ---- PostCollectionItemBmc
 pub struct PostCollectionItemBmc;

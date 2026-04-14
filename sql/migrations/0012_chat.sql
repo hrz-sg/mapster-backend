@@ -23,6 +23,7 @@ CREATE TABLE chat_seq (
 CREATE TABLE chat_member(
     chat_id VARCHAR(25) NOT NULL REFERENCES chat(id) ON DELETE CASCADE,
     user_id VARCHAR(25) NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    role chat_member_role NOT NULL DEFAULT 'Member',
     last_read_seq BIGINT NOT NULL DEFAULT 0, -- highest seq the user has acknowledged reading
     joined_at TIMESTAMPTZ DEFAULT now(),
     left_at TIMESTAMPTZ,

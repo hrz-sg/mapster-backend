@@ -1,4 +1,4 @@
-// region: --- Modules
+// region: ---- Modules
 
 use lib_core::model::journey::{AddPostToJourney, JourneyPostForUpdate};
 use lib_core::service::journey_post::JourneyPostService;
@@ -8,7 +8,7 @@ use lib_core::model::ModelManager;
 use lib_rpc::router::RpcRouter;
 use lib_rpc::rpc_router;
 
-// endregion: --- Modules
+// endregion: ---- Modules
 
 pub fn rpc_router() -> RpcRouter {
 	rpc_router!(

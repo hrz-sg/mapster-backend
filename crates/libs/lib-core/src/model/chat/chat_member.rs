@@ -13,10 +13,27 @@ use sqlx::FromRow;
 // endregion: --- Imports
 
 // region: ---- ChatMember Types
+#[derive(Clone, Debug, sqlx::Type, derive_more::Display, Deserialize, Serialize)]
+#[sqlx(type_name = "role")]
+pub enum ChatRole {
+    Admin,
+    Member,
+}
+
+// Covert custom ChatRole into sea_query::Value
+impl From<ChatRole> for sea_query::Value {
+    fn from(val: ChatRole) -> Self {
+        val.to_string().into()
+    }
+}
+
 #[derive(Debug, Clone, Fields, FromRow, Serialize)]
 pub struct ChatMember {
     pub chat_id: String,
     pub user_id: String,
+    #[field(cast_as = "role")]
+    pub role: ChatRole,
+    pub last_read_seq: i64,
     pub joined_at: chrono::DateTime<chrono::Utc>,
     pub left_at: Option<chrono::DateTime<chrono::Utc>>,
 }
@@ -25,6 +42,8 @@ pub struct ChatMember {
 pub struct ChatMemberForCreate {
     pub chat_id: String,
     pub user_id: String,
+    #[field(cast_as = "role")]
+    pub role: ChatRole,
 }
 
 #[derive(Fields, Deserialize, Default)]
