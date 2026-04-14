@@ -7,6 +7,7 @@ mod post_media;
 pub mod user;
 pub mod user_follow;
 pub mod user_profile;
+pub mod comment;
 mod user_stats;
 
 mod error;

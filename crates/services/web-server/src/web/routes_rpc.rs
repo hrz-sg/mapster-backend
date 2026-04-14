@@ -3,6 +3,7 @@ use lib_rpc::router::RpcRouter;
 use lib_web::handlers::handlers_rpc::{RpcState, rpc_axum_handler};
 use std::sync::Arc;
 
+use crate::web::rpcs::comment_rpc;
 use crate::web::rpcs::journey_post_rpc;
 
 use super::rpcs::user_rpc;
@@ -20,6 +21,7 @@ pub fn create_rpc_router() -> RpcRouter {
         .extend(journey_rpc::rpc_router())
         .extend(journey_post_rpc::rpc_router())
         .extend(chat_rpc::rpc_router())
+        .extend(comment_rpc::rpc_router())
 }
 
 // Axum router for '/api/rpc'

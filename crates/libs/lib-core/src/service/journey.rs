@@ -1,4 +1,4 @@
-// region: --- Modules
+// region: ---- Imports
 
 use crate::ctx::Ctx;
 use crate::model::ModelManager;
@@ -15,7 +15,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use tracing::{info, warn};
 
-// endregion: --- Modules
+// endregion: ---- Imports
 
 pub struct JourneyService;
 
